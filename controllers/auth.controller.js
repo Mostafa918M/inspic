@@ -2,21 +2,28 @@ const asyncErrorHandler = require("../utils/asyncErrorHandler");
 const ApiError = require("../utils/apiError");
 const User = require("../models/users.models");
 const bcrypt = require("bcrypt");
-
+const passwordValidator = require('../utils/passwordValidator');
 const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
 const sendResponse = require("../utils/sendResponse");
 const logger = require("../utils/logger");
 
 const { generate6DigitCode, hashCode, compareCode } = require("../utils/verification");
-const { sendVerificationEmail } = require("../utils/mailer");
+const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/mailer");
 
 const { OAuth2Client } = require("google-auth-library");
+const { generatePasswordResetToken, hashPasswordResetToken } = require("../utils/passwordReset");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const VERIFICATION_CODE_TTL_MIN = 15;
-const MAX_VERIFICATION_ATTEMPTS = 5; 
-const RESEND_COOLDOWN_SECONDS = 60;
+
+const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const VERIFICATION_CODE_TTL_MIN = 15
+const MAX_VERIFICATION_ATTEMPTS = 5
+const RESEND_COOLDOWN_SECONDS = 60
+
+const RESET_TOKEN_TTL_MIN = process.env.RESET_TOKEN_TTL_MIN || 30
+const RESET_RESEND_COOLDOWN_SECONDS = process.env.RESET_RESEND_COOLDOWN_SECONDS || 60
+const PASSWORD_MIN_LENGTH = process.env.PASSWORD_MIN_LENGTH || 8
 
 async function createAndSendEmailCode(user, logger) {
   const code = generate6DigitCode();
@@ -40,6 +47,11 @@ const signup = asyncErrorHandler(async (req, res, next) => {
   if (!username || !email || !password) {
     logger.warn("Auth: signup missing fields");
     return next(new ApiError("Please provide all required fields"));
+  }
+  const {valid,errors} = passwordValidator.validatePasswordUsingLib(password, { username, email });
+  if (!valid) {
+    logger.warn("Auth: signup invalid password", { email, errors });
+    return next(new ApiError("Invalid password", 400));
   }
   const existingEmail = await User.findOne({ email });
   if (existingEmail) {
@@ -304,21 +316,96 @@ const callback = asyncErrorHandler(async (req, res, next) => {
   });
 });
 
-const setPassword = asyncErrorHandler(async (req, res, next) => {
-  const userId = req.user.id;
-  const { newPassword } = req.body;
 
-  if (!newPassword || newPassword.length < 8) return next(new ApiError("Password must be at least 8 characters"));
+const forgetPassword = asyncErrorHandler(async (req, res, next) => {
+  const raw = req.body.email || "";
+  const email = String(raw).trim().toLowerCase();
 
-  const user = await User.findById(userId).select("+password");
-  if (!user) return next(new ApiError("User not found"));
+  const genericOk = () =>
+    sendResponse(res, 200, "success", "If this email exists, a reset link has been sent.");
 
-  const hash = await bcrypt.hash(newPassword, 10);
-  user.password = hash;
+  if (!email) return genericOk();
+
+  const user = await User.findOne({ email });
+  if (!user) return genericOk();
+
+  const now = new Date();
+  if (
+    user.passwordResetLastSentAt &&
+    (now - new Date(user.passwordResetLastSentAt)) / 1000 < RESET_RESEND_COOLDOWN_SECONDS
+  ) {
+    return genericOk();
+  }
+
+  const { token, hash } = generatePasswordResetToken();
+  user.passwordResetTokenHash = hash;
+  user.passwordResetExpiresAt = new Date(now.getTime() + RESET_TOKEN_TTL_MIN * 60 * 1000);
+  user.passwordResetLastSentAt = now;
   await user.save();
 
-  sendResponse(res, 200, "success", "Password set successfully", {});
+  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+  await sendPasswordResetEmail(user.email, resetUrl);
+  logger.info("Auth: password reset email sent", { userId: user._id.toString(), email: user.email });
+
+  return genericOk();
 });
+
+const resetPassword = asyncErrorHandler(async (req, res, next) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return next(new ApiError("Token and new password are required"));
+  }
+const {valid, errors} = passwordValidator.validatePasswordUsingLib(newPassword);
+  if (!valid) {
+    logger.warn("Auth: reset password invalid password", { errors });
+    return next(new ApiError("Invalid password", 400));
+  }
+
+  const tokenHash = hashPasswordResetToken(token);
+  const user = await User.findOne({
+    passwordResetTokenHash: tokenHash,
+    passwordResetExpiresAt: { $gt: new Date() },
+  }).select("+password");
+
+  if (!user) {
+    return next(new ApiError("Invalid or expired reset token."));
+  }
+
+
+  user.password = await bcrypt.hash(newPassword, 10);
+ 
+  user.passwordResetTokenHash = null;
+  user.passwordResetExpiresAt = null;
+  user.passwordResetLastSentAt = null;
+  await user.save();
+
+  logger.info("Auth: password reset success", { userId: user._id, email: user.email });
+
+  
+  const RefreshToken = generateRefreshToken(user);
+  const accessToken = generateAccessToken(user);
+
+  res.cookie("refreshToken", RefreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict", 
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  return sendResponse(res, 200, "success", "Password has been reset successfully.", {
+    user: {
+      id: user._id,
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      isEmailVerified: user.isEmailVerified,
+      provider: user.provider,
+    },
+    accessToken,
+  });
+});
+
 
 module.exports = {
   signup,
@@ -326,6 +413,6 @@ module.exports = {
   verifyEmail,
   resendVerification,
   callback,
-  setPassword,
-
+  forgetPassword,
+  resetPassword
 };

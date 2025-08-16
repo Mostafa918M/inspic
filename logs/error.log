@@ -1,31 +1,34 @@
-2025-08-16 21:39:21 [error] : DB CONNECTED ERROR: bad auth : Authentication failed.
-2025-08-16 22:14:00 [error] : Error caught by global handler Route /api/v1/users/profile not found
-2025-08-16 22:14:22 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:14:22 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:14:31 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:14:31 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:15:16 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:15:16 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:18:39 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:18:39 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:20:28 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:20:28 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
-2025-08-16 22:21:20 [error] : Error caught by global handler Invalid or expired token, please login again
-2025-08-16 22:22:43 [error] : Error caught by global handler Invalid or expired token, please login again
-2025-08-16 22:22:55 [error] : Error caught by global handler Unable to create account
-2025-08-16 22:22:55 [error] : Unexpected error Unable to create account
-2025-08-16 22:23:26 [error] : Error caught by global handler logger is not defined
-2025-08-16 22:23:26 [error] : Unexpected error logger is not defined
-2025-08-16 22:24:52 [error] : Error caught by global handler sendResponse is not defined
-2025-08-16 22:24:52 [error] : Unexpected error sendResponse is not defined
-2025-08-17 00:24:45 [error] : Error caught by global handler Expected ':' after property name in JSON at position 52 (line 1 column 53)
-2025-08-17 00:24:45 [error] : Unexpected error Expected ':' after property name in JSON at position 52 (line 1 column 53)
-2025-08-17 00:24:52 [error] : Error caught by global handler Please provide all required fields
-2025-08-17 00:25:25 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
-2025-08-17 00:25:25 [error] : Unexpected error connect ECONNREFUSED ::1:587
-2025-08-17 00:31:17 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
-2025-08-17 00:31:17 [error] : Unexpected error connect ECONNREFUSED ::1:587
-2025-08-17 00:35:13 [error] : Error caught by global handler Unable to create account
-2025-08-17 00:40:03 [error] : Error caught by global handler Cannot destructure property 'email' of 'req.body' as it is undefined.
-2025-08-17 00:40:03 [error] : Unexpected error Cannot destructure property 'email' of 'req.body' as it is undefined.
-2025-08-17 00:49:34 [error] : Error caught by global handler Invalid or expired token, please login again
+2025-08-17 01:30:05 [error] : Error caught by global handler Invalid password
+2025-08-17 01:30:29 [error] : Error caught by global handler Invalid password
+2025-08-17 01:30:33 [error] : Error caught by global handler Invalid password
+2025-08-17 01:30:35 [error] : Error caught by global handler Invalid password
+2025-08-17 01:30:38 [error] : Error caught by global handler Invalid password
+2025-08-17 01:30:40 [error] : Error caught by global handler User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:30:40 [error] : Unexpected error User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:36:17 [error] : Error caught by global handler Unable to create account
+2025-08-17 01:36:30 [error] : Error caught by global handler passwordValidator is not a function
+2025-08-17 01:36:30 [error] : Unexpected error passwordValidator is not a function
+2025-08-17 01:36:37 [error] : Error caught by global handler passwordValidator is not a function
+2025-08-17 01:36:37 [error] : Unexpected error passwordValidator is not a function
+2025-08-17 01:37:05 [error] : Error caught by global handler Invalid password
+2025-08-17 01:37:21 [error] : Error caught by global handler User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:37:21 [error] : Unexpected error User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:39:45 [error] : Error caught by global handler Invalid password
+2025-08-17 01:39:49 [error] : Error caught by global handler Unable to create account
+2025-08-17 01:39:59 [error] : Error caught by global handler User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:39:59 [error] : Unexpected error User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:43:47 [error] : Error caught by global handler User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:43:47 [error] : Unexpected error User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:44:31 [error] : Error caught by global handler User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:44:31 [error] : Unexpected error User validation failed: emailVerificationExpiresAt: Cast to date failed for value "Invalid Date" (type Date) at path "emailVerificationExpiresAt"
+2025-08-17 01:47:32 [error] : Error caught by global handler generatePasswordResetToken is not defined
+2025-08-17 01:47:32 [error] : Unexpected error generatePasswordResetToken is not defined
+2025-08-17 01:48:45 [error] : Error caught by global handler APP_URL is not defined
+2025-08-17 01:48:45 [error] : Unexpected error APP_URL is not defined
+2025-08-17 01:50:08 [error] : Error caught by global handler APP_URL is not defined
+2025-08-17 01:50:08 [error] : Unexpected error APP_URL is not defined
+2025-08-17 01:51:36 [error] : Error caught by global handler sendPasswordResetEmail is not defined
+2025-08-17 01:51:36 [error] : Unexpected error sendPasswordResetEmail is not defined
+2025-08-17 01:57:08 [error] : Error caught by global handler Route /reset-password?token=7e2d70f0cbaa300d63976bbf3586bbeff5b26e482d69bc240409d3bb584d1453 not found
+2025-08-17 01:57:08 [error] : Error caught by global handler Route /favicon.ico not found
+2025-08-17 01:57:15 [error] : Error caught by global handler Route /reset-password?token=7e2d70f0cbaa300d63976bbf3586bbeff5b26e482d69bc240409d3bb584d1453 not found

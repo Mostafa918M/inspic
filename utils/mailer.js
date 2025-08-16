@@ -37,5 +37,21 @@ async function sendVerificationEmail(to, code) {
     html,
   });
 }
+async function sendPasswordResetEmail(to, resetUrl) {
+  const subject = "Reset your password";
+  const html = `
+    <div style="font-family:Arial,sans-serif;font-size:16px;line-height:1.5">
+      <p>We received a request to reset your password.</p>
+      <p><a href="${resetUrl}" style="display:inline-block;padding:10px 16px;text-decoration:none;border-radius:6px;background:#0b5cff;color:#fff;">Reset Password</a></p>
+      <p>If the button doesn’t work, copy and paste this URL:</p>
+      <p style="word-break:break-all">${resetUrl}</p>
+      <p>This link expires in 30 minutes. If you didn’t request this, you can ignore this email.</p>
+    </div>
+  `;
+  await transporter.sendMail({
+    from: process.env.MAIL_FROM || '"No Reply" <no-reply@example.com>',
+    to, subject, html,
+  });
+}
 
-module.exports = { sendVerificationEmail };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail };
