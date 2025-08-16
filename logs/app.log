@@ -177,3 +177,106 @@
 2025-08-16 22:25:33 [info] : DB Connected successfully
 2025-08-16 22:31:33 [info] : Server started on port 3000
 2025-08-16 22:31:34 [info] : DB Connected successfully
+2025-08-16 23:26:48 [info] : Server started on port 3000
+2025-08-16 23:26:49 [info] : DB Connected successfully
+2025-08-16 23:26:51 [info] : Server started on port 3000
+2025-08-16 23:26:52 [info] : DB Connected successfully
+2025-08-16 23:28:21 [info] : Auth: signup attempt
+2025-08-16 23:28:22 [info] : Auth: signup success
+2025-08-16 23:36:49 [info] : Server started on port 3000
+2025-08-16 23:36:50 [info] : DB Connected successfully
+2025-08-16 23:36:53 [info] : Server started on port 3000
+2025-08-16 23:36:54 [info] : Server started on port 3000
+2025-08-16 23:36:55 [info] : DB Connected successfully
+2025-08-16 23:36:56 [info] : Server started on port 3000
+2025-08-16 23:36:57 [info] : Server started on port 3000
+2025-08-16 23:36:58 [info] : DB Connected successfully
+2025-08-16 23:37:29 [info] : Server started on port 3000
+2025-08-16 23:37:30 [info] : Server started on port 3000
+2025-08-16 23:37:31 [info] : DB Connected successfully
+2025-08-16 23:38:43 [info] : Server started on port 3000
+2025-08-16 23:38:44 [info] : Server started on port 3000
+2025-08-16 23:38:45 [info] : DB Connected successfully
+2025-08-16 23:42:04 [info] : Server started on port 3000
+2025-08-16 23:42:04 [info] : DB Connected successfully
+2025-08-16 23:42:06 [info] : Server started on port 3000
+2025-08-16 23:42:07 [info] : DB Connected successfully
+2025-08-16 23:48:57 [info] : Server started on port 3000
+2025-08-16 23:48:58 [info] : DB Connected successfully
+2025-08-16 23:49:04 [info] : Server started on port 3000
+2025-08-16 23:49:05 [info] : DB Connected successfully
+2025-08-16 23:49:10 [info] : Server started on port 3000
+2025-08-16 23:49:13 [info] : Server started on port 3000
+2025-08-16 23:49:14 [info] : DB Connected successfully
+2025-08-16 23:49:40 [info] : Server started on port 3000
+2025-08-16 23:49:41 [info] : DB Connected successfully
+2025-08-16 23:49:46 [info] : Server started on port 3000
+2025-08-16 23:49:47 [info] : DB Connected successfully
+2025-08-16 23:50:00 [info] : Server started on port 3000
+2025-08-16 23:50:00 [info] : DB Connected successfully
+2025-08-16 23:50:03 [info] : Server started on port 3000
+2025-08-16 23:50:04 [info] : DB Connected successfully
+2025-08-16 23:50:15 [info] : Server started on port 3000
+2025-08-16 23:50:16 [info] : DB Connected successfully
+2025-08-16 23:50:33 [info] : Server started on port 3000
+2025-08-16 23:50:34 [info] : DB Connected successfully
+2025-08-16 23:50:37 [info] : Server started on port 3000
+2025-08-16 23:50:38 [info] : DB Connected successfully
+2025-08-17 00:24:32 [info] : Server started on port 3000
+2025-08-17 00:24:33 [info] : DB Connected successfully
+2025-08-17 00:24:45 [error] : Error caught by global handler Expected ':' after property name in JSON at position 52 (line 1 column 53)
+2025-08-17 00:24:45 [error] : Unexpected error Expected ':' after property name in JSON at position 52 (line 1 column 53)
+2025-08-17 00:24:52 [info] : Auth: signup attempt
+2025-08-17 00:24:52 [warn] : Auth: signup missing fields
+2025-08-17 00:24:52 [error] : Error caught by global handler Please provide all required fields
+2025-08-17 00:25:25 [info] : Auth: signup attempt
+2025-08-17 00:25:25 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
+2025-08-17 00:25:25 [error] : Unexpected error connect ECONNREFUSED ::1:587
+2025-08-17 00:31:16 [info] : Auth: signup attempt
+2025-08-17 00:31:17 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
+2025-08-17 00:31:17 [error] : Unexpected error connect ECONNREFUSED ::1:587
+2025-08-17 00:33:33 [info] : Server started on port 3000
+2025-08-17 00:33:33 [info] : DB Connected successfully
+2025-08-17 00:33:59 [info] : Server started on port 3000
+2025-08-17 00:34:00 [info] : DB Connected successfully
+2025-08-17 00:34:10 [info] : Server started on port 3000
+2025-08-17 00:34:11 [info] : DB Connected successfully
+2025-08-17 00:34:14 [info] : Server started on port 3000
+2025-08-17 00:34:15 [info] : DB Connected successfully
+2025-08-17 00:34:31 [info] : Server started on port 3000
+2025-08-17 00:34:31 [info] : DB Connected successfully
+2025-08-17 00:34:33 [info] : Server started on port 3000
+2025-08-17 00:34:35 [info] : Server started on port 3000
+2025-08-17 00:34:36 [info] : DB Connected successfully
+2025-08-17 00:34:48 [info] : Server started on port 3000
+2025-08-17 00:34:49 [info] : DB Connected successfully
+2025-08-17 00:34:53 [info] : Server started on port 3000
+2025-08-17 00:34:54 [info] : DB Connected successfully
+2025-08-17 00:34:58 [info] : Server started on port 3000
+2025-08-17 00:34:58 [info] : DB Connected successfully
+2025-08-17 00:35:13 [info] : Auth: signup attempt
+2025-08-17 00:35:13 [warn] : Auth: signup email already in use
+2025-08-17 00:35:13 [error] : Error caught by global handler Unable to create account
+2025-08-17 00:35:27 [info] : Auth: signup attempt
+2025-08-17 00:35:29 [info] : Auth: verification code sent
+2025-08-17 00:35:29 [info] : Auth: signup created, awaiting email verification
+2025-08-17 00:37:17 [info] : Auth: signup attempt
+2025-08-17 00:37:18 [info] : Auth: verification code sent
+2025-08-17 00:37:18 [info] : Auth: signup created, awaiting email verification
+2025-08-17 00:37:53 [info] : Server started on port 3000
+2025-08-17 00:37:56 [info] : Server started on port 3000
+2025-08-17 00:37:57 [info] : DB Connected successfully
+2025-08-17 00:38:02 [info] : Server started on port 3000
+2025-08-17 00:38:03 [info] : DB Connected successfully
+2025-08-17 00:38:05 [info] : Server started on port 3000
+2025-08-17 00:38:05 [info] : DB Connected successfully
+2025-08-17 00:38:10 [info] : Server started on port 3000
+2025-08-17 00:38:41 [info] : Server started on port 3000
+2025-08-17 00:38:41 [info] : DB Connected successfully
+2025-08-17 00:38:43 [info] : Server started on port 3000
+2025-08-17 00:38:44 [info] : DB Connected successfully
+2025-08-17 00:40:03 [error] : Error caught by global handler Cannot destructure property 'email' of 'req.body' as it is undefined.
+2025-08-17 00:40:03 [error] : Unexpected error Cannot destructure property 'email' of 'req.body' as it is undefined.
+2025-08-17 00:41:02 [info] : Auth: verify email attempt
+2025-08-17 00:41:02 [info] : Auth: email verified
+2025-08-17 00:49:34 [error] : Error caught by global handler Invalid or expired token, please login again

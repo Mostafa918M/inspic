@@ -18,3 +18,14 @@
 2025-08-16 22:23:26 [error] : Unexpected error logger is not defined
 2025-08-16 22:24:52 [error] : Error caught by global handler sendResponse is not defined
 2025-08-16 22:24:52 [error] : Unexpected error sendResponse is not defined
+2025-08-17 00:24:45 [error] : Error caught by global handler Expected ':' after property name in JSON at position 52 (line 1 column 53)
+2025-08-17 00:24:45 [error] : Unexpected error Expected ':' after property name in JSON at position 52 (line 1 column 53)
+2025-08-17 00:24:52 [error] : Error caught by global handler Please provide all required fields
+2025-08-17 00:25:25 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
+2025-08-17 00:25:25 [error] : Unexpected error connect ECONNREFUSED ::1:587
+2025-08-17 00:31:17 [error] : Error caught by global handler connect ECONNREFUSED ::1:587
+2025-08-17 00:31:17 [error] : Unexpected error connect ECONNREFUSED ::1:587
+2025-08-17 00:35:13 [error] : Error caught by global handler Unable to create account
+2025-08-17 00:40:03 [error] : Error caught by global handler Cannot destructure property 'email' of 'req.body' as it is undefined.
+2025-08-17 00:40:03 [error] : Unexpected error Cannot destructure property 'email' of 'req.body' as it is undefined.
+2025-08-17 00:49:34 [error] : Error caught by global handler Invalid or expired token, please login again
