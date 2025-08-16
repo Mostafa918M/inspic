@@ -1,4 +1,6 @@
 const apiError = require("../utils/apiError");
+const logger = require("../utils/logger");
+
 
 const sendErrorForDev = (err, res) => {
   res.status(err.statusCode).json({
@@ -104,6 +106,19 @@ const globalError = (err, req, res, next) => {
   err.statusCode = err.statusCode || 500;
   err.status = err.status || "error";
 
+  logger.error("Error caught by global handler", {
+    name: err.name,
+    message: err.message,
+    stack: err.stack,
+    statusCode: err.statusCode,
+    url: req.originalUrl,
+    method: req.method,
+    body: req.body,
+    params: req.params,
+    query: req.query,
+    ip: req.ip,
+  });
+
   // Log error for debugging (in development or with proper logger)
   if (process.env.NODE_ENV === "development") {
     console.error("Error Details:", {
@@ -147,6 +162,12 @@ const globalError = (err, req, res, next) => {
     // Handle any unexpected errors
     if (!error.isExpected) {
       console.error("Unexpected Error:", {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        url: req.originalUrl,
+      });
+      logger.error("Unexpected error", {
         name: error.name,
         message: error.message,
         stack: error.stack,

@@ -1,0 +1,20 @@
+2025-08-16 21:39:21 [error] : DB CONNECTED ERROR: bad auth : Authentication failed.
+2025-08-16 22:14:00 [error] : Error caught by global handler Route /api/v1/users/profile not found
+2025-08-16 22:14:22 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:14:22 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:14:31 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:14:31 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:15:16 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:15:16 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:18:39 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:18:39 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:20:28 [error] : Error caught by global handler Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:20:28 [error] : Unexpected error Cannot read properties of undefined (reading 'headers')
+2025-08-16 22:21:20 [error] : Error caught by global handler Invalid or expired token, please login again
+2025-08-16 22:22:43 [error] : Error caught by global handler Invalid or expired token, please login again
+2025-08-16 22:22:55 [error] : Error caught by global handler Unable to create account
+2025-08-16 22:22:55 [error] : Unexpected error Unable to create account
+2025-08-16 22:23:26 [error] : Error caught by global handler logger is not defined
+2025-08-16 22:23:26 [error] : Unexpected error logger is not defined
+2025-08-16 22:24:52 [error] : Error caught by global handler sendResponse is not defined
+2025-08-16 22:24:52 [error] : Unexpected error sendResponse is not defined
