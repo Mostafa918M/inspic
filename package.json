@@ -1,0 +1,20 @@
+{
+  "name": "inspic",
+  "version": "1.0.0",
+  "description": "Inspic is a modern web app inspired by Pinterest — a platform for discovering, saving, and sharing images, videos, and creative ideas on customizable boards. Designed for inspiration and collaboration, Inspic lets users create collections, explore trending content, and spark creativity.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "cookie-parser": "^1.4.7",
+    "dotenv": "^17.2.1",
+    "express": "^5.1.0",
+    "mongoose": "^8.17.1",
+    "nodemon": "^3.1.10"
+  }
+}
