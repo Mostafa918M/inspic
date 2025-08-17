@@ -8,6 +8,7 @@ const {
   callback,
   forgetPassword,
   resetPassword,
+  resendVerification,
 } = require("../controllers/auth.controller");
 const { emailValidator } = require("../middlewares/validators");
 
@@ -19,6 +20,7 @@ router.post(
 router.post("/signin",  emailValidator, signin);
 router.post("/callback", callback);
 router.post("/verify-email", verifyEmail);
+router.post("/resend-verification", emailValidator, resendVerification);
 
 router.post("/forget-password", emailValidator, forgetPassword);
 router.post("/reset-password", resetPassword);

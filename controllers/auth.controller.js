@@ -23,7 +23,6 @@ const RESEND_COOLDOWN_SECONDS = 60
 
 const RESET_TOKEN_TTL_MIN = process.env.RESET_TOKEN_TTL_MIN || 30
 const RESET_RESEND_COOLDOWN_SECONDS = process.env.RESET_RESEND_COOLDOWN_SECONDS || 60
-const PASSWORD_MIN_LENGTH = process.env.PASSWORD_MIN_LENGTH || 8
 
 async function createAndSendEmailCode(user, logger) {
   const code = generate6DigitCode();
@@ -100,7 +99,7 @@ const signin = asyncErrorHandler(async (req, res, next) => {
     logger.warn("Auth: signin missing fields", { email, hasEmail: !!email, hasPassword: !!password });
     return next(new ApiError("Please provide all required fields", 400));
   }
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+password");
   if (!user) {
     logger.warn("Auth: signin invalid email", { email, reason: "user_not_found" });
     return next(new ApiError("Invalid email or password", 401));
