@@ -6,6 +6,7 @@ const {
   signin,
   verifyEmail,
   callback,
+  signout,
   forgetPassword,
   resetPassword,
   resendVerification,
@@ -21,6 +22,7 @@ router.post("/signin",  emailValidator, signin);
 router.post("/callback", callback);
 router.post("/verify-email", verifyEmail);
 router.post("/resend-verification", emailValidator, resendVerification);
+router.post("/signout",signout)
 
 router.post("/forget-password", emailValidator, forgetPassword);
 router.post("/reset-password", resetPassword);

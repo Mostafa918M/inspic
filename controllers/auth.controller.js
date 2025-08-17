@@ -6,6 +6,7 @@ const passwordValidator = require('../utils/passwordValidator');
 const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
 const sendResponse = require("../utils/sendResponse");
 const logger = require("../utils/logger");
+const jwt = require("jsonwebtoken");
 
 const { generate6DigitCode, hashCode, compareCode } = require("../utils/verification");
 const { sendVerificationEmail, sendPasswordResetEmail } = require("../utils/mailer");
@@ -163,6 +164,62 @@ const signin = asyncErrorHandler(async (req, res, next) => {
   
 });
 
+const callback = asyncErrorHandler(async (req, res, next) => {
+  const { idToken } = req.body;
+  if (!idToken) return next(new ApiError("Missing Google token"));
+
+  let payload;
+  try {
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    payload = ticket.getPayload();
+  } catch (e) {
+    return next(new ApiError("Invalid Google token"));
+  }
+
+  const { sub: googleId, email, name, picture, email_verified } = payload || {};
+  if (!email || !googleId || !email_verified) return next(new ApiError("Unable to authenticate with Google"));
+
+  // find by googleId or email (to auto-link)
+  let user = await User.findOne({ $or: [{ googleId }, { email }] });
+
+  if (!user) {
+    user = await User.create({
+      username: name || email.split("@")[0],
+      email,
+      googleId,
+      provider: "google",
+      avatar: picture,
+      isEmailVerified: true,
+    });
+  } else {
+    const updates = {};
+    if (!user.googleId) updates.googleId = googleId;
+    if (user.provider !== "google") updates.provider = "google"; // you can keep 'local' if you prefer dual-mode
+    if (!user.isEmailVerified && email_verified) updates.isEmailVerified = true;
+    if (!user.avatar && picture) updates.avatar = picture;
+    if (Object.keys(updates).length) await User.updateOne({ _id: user._id }, { $set: updates });
+  }
+
+  const RefreshToken = generateRefreshToken(user);
+  const accessToken  = generateAccessToken(user);
+  res.cookie("refreshToken", RefreshToken, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict", // if frontend is on another domain, switch to: sameSite: "None", secure: true
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  sendResponse(res, 200, "success", "Signin successful", {
+    user: {
+      id: user._id, username: user.username, email: user.email, role: user.role,
+      avatar: user.avatar, provider: user.provider,
+    },
+    accessToken,
+  });
+});
 const verifyEmail = asyncErrorHandler(async (req, res, next) => {
   const { email, code } = req.body;
 
@@ -258,61 +315,39 @@ const resendVerification = asyncErrorHandler(async (req, res, next) => {
   return sendResponse(res, 200, "success", "Verification code sent.");
 });
 
-const callback = asyncErrorHandler(async (req, res, next) => {
-  const { idToken } = req.body;
-  if (!idToken) return next(new ApiError("Missing Google token"));
 
-  let payload;
-  try {
-    const ticket = await googleClient.verifyIdToken({
-      idToken,
-      audience: process.env.GOOGLE_CLIENT_ID,
+
+const signout = asyncErrorHandler(async (req, res, next) => {
+  logger.info("Auth: signout attempt", {
+    ip: req.ip,
+    ua: req.headers["user-agent"],
+  });
+
+ try {
+    const authHeader = req.headers["authorization"];
+    if (authHeader) {
+      const [, token] = authHeader.split(" ");
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET_ACCESS);
+        await User.updateOne({ _id: decoded.id }, { $inc: { tokenVersion: 1 } });
+        logger.info("Auth: tokenVersion incremented on signout", { userId: decoded.id });
+      } catch (err) {
+        logger.warn("Auth: signout token verification failed", { message: err.message, stack: err.stack });
+        return next(new ApiError("Invalid or expired token, please login again", 401));
+      }
+    }
+
+    res.clearCookie("refreshToken", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
     });
-    payload = ticket.getPayload();
+
+    logger.info("Auth: signout success", { ip: req.ip });
+    return sendResponse(res, 200, "success", "Signout successful");
   } catch (e) {
-    return next(new ApiError("Invalid Google token"));
+    return next(new ApiError("Failed to sign out", 500));
   }
-
-  const { sub: googleId, email, name, picture, email_verified } = payload || {};
-  if (!email || !googleId || !email_verified) return next(new ApiError("Unable to authenticate with Google"));
-
-  // find by googleId or email (to auto-link)
-  let user = await User.findOne({ $or: [{ googleId }, { email }] });
-
-  if (!user) {
-    user = await User.create({
-      username: name || email.split("@")[0],
-      email,
-      googleId,
-      provider: "google",
-      avatar: picture,
-      isEmailVerified: true,
-    });
-  } else {
-    const updates = {};
-    if (!user.googleId) updates.googleId = googleId;
-    if (user.provider !== "google") updates.provider = "google"; // you can keep 'local' if you prefer dual-mode
-    if (!user.isEmailVerified && email_verified) updates.isEmailVerified = true;
-    if (!user.avatar && picture) updates.avatar = picture;
-    if (Object.keys(updates).length) await User.updateOne({ _id: user._id }, { $set: updates });
-  }
-
-  const RefreshToken = generateRefreshToken(user);
-  const accessToken  = generateAccessToken(user);
-  res.cookie("refreshToken", RefreshToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Strict", // if frontend is on another domain, switch to: sameSite: "None", secure: true
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-  });
-
-  sendResponse(res, 200, "success", "Signin successful", {
-    user: {
-      id: user._id, username: user.username, email: user.email, role: user.role,
-      avatar: user.avatar, provider: user.provider,
-    },
-    accessToken,
-  });
 });
 
 
@@ -412,6 +447,7 @@ module.exports = {
   verifyEmail,
   resendVerification,
   callback,
+  signout,
   forgetPassword,
   resetPassword
 };

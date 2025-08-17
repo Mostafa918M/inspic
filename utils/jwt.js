@@ -20,12 +20,12 @@ function signToken(payload, secret, expiresIn) {
 }
 
 const generateRefreshToken = (user) => {
-    const payload = { id: user._id, role: user.role, type: "refresh" };
+    const payload = { id: user._id, role: user.role, tokenVersion: user.tokenVersion, type: "refresh" };
   return signToken(payload, JWT_SECRET_REFRESH, "7d");
 };
 
 const generateAccessToken = (user) => {
-  const payload = { id: user._id, role: user.role, type: "access" };
+  const payload = { id: user._id, role: user.role, tokenVersion: user.tokenVersion, type: "access" };
   return signToken(payload, JWT_SECRET_ACCESS, "15m");
 };
 
