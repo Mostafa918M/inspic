@@ -1,6 +1,6 @@
 // middleware/auth.js
 const jwt = require("jsonwebtoken");
-const User = require("../models/users.models");
+const User = require("../models/users.model");
 const JWT_SECRET_ACCESS = process.env.JWT_SECRET_ACCESS;
 const apiError = require("../utils/apiError");
 

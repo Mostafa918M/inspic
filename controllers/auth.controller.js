@@ -1,6 +1,6 @@
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
 const ApiError = require("../utils/apiError");
-const User = require("../models/users.models");
+const User = require("../models/users.model");
 const bcrypt = require("bcrypt");
 const passwordValidator = require('../utils/passwordValidator');
 const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
@@ -37,14 +37,14 @@ async function createAndSendEmailCode(user, logger) {
   logger.info("Auth: verification code sent", { userId: user._id.toString(), email: user.email });
 }
 
-const signup = asyncErrorHandler(async (req, res, next) => {  
-  const { username, email, password } = req.body;
-   logger.info("Auth: signup attempt", {
+const signup = asyncErrorHandler(async (req, res, next) => {
+  const { username, firstName, lastName, email, password } = req.body;
+  logger.info("Auth: signup attempt", {
     email,
     ip: req.ip,
     ua: req.headers["user-agent"],
   });
-  if (!username || !email || !password) {
+  if (!username || !email || !password || !firstName || !lastName) {
     logger.warn("Auth: signup missing fields");
     return next(new ApiError("Please provide all required fields"));
   }
@@ -61,6 +61,8 @@ const signup = asyncErrorHandler(async (req, res, next) => {
   const hashPassword = await bcrypt.hash(password, 10);
   const user = new User({
     username: username,
+    firstName: firstName,
+    lastName: lastName,
     email: email,
     password: hashPassword,
     provider: "local",
@@ -79,6 +81,8 @@ const signup = asyncErrorHandler(async (req, res, next) => {
     user: {
       id: user._id,
       username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified
