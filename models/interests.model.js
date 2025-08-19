@@ -9,6 +9,7 @@ const INTERACTION_WEIGHTS = {
   COMMENT: 5,
   DOWNLOAD: 3,
   SHARE: 5,
+  SEARCH:3
 }
 const interestSchema = new mongoose.Schema({
    user: {type: mongoose.Schema.Types.ObjectId, ref: "User", index: true, required: true},
@@ -25,6 +26,7 @@ const interestSchema = new mongoose.Schema({
     comments:  { type: Number, default: 0 },
     downloads: { type: Number, default: 0 },
     shares:    { type: Number, default: 0 },
+    searches:  { type: Number, default: 0 }
   },
 
   level: { type: String, enum: ["low", "medium", "high"], default: "low", index: true },

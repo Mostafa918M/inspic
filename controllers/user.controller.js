@@ -73,6 +73,7 @@ const user = await User.findByIdAndUpdate(
     new: true,              
   }
 );
+logger.info('User profile updated successfully', { userId, updates });
 sendResponse(res, 200, "success", "User profile updated successfully", {
   user: {
     id: user._id,

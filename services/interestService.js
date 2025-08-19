@@ -22,15 +22,19 @@ function levelFromScore(score) {
 }
 
 async function updateInterestsFromAction(userId, pinDoc, action) {
-  const weight = INTERACTION_WEIGHTS[action] || 0;
+    const weight = INTERACTION_WEIGHTS[action] || 0;
   if (!weight) return;
 
-  const keywords = Array.isArray(pinDoc.keywords) ? pinDoc.keywords : [];
-  if (!keywords.length) return;
+  // Accept either a real pinDoc with keywords, or a plain object { keywords: [...] } for SEARCH
+  const extractedKeywords =
+    (Array.isArray(pinDoc?.keywords) ? pinDoc.keywords : []);
+
+  // For pin actions without keywords, bail early
+  if (!extractedKeywords.length) return;
 
   const now = new Date();
 
-  const ops = keywords.map(async (kw) => {
+  const ops = extractedKeywords.map(async (kw) => {
     const nk = norm(kw);
     const doc = await Interest.findOne({ user: userId, normKey: nk });
 
@@ -52,24 +56,37 @@ async function updateInterestsFromAction(userId, pinDoc, action) {
           comments:  action === "COMMENT" ? 1 : 0,
           downloads: action === "DOWNLOAD" ? 1 : 0,
           shares:    action === "SHARE" ? 1 : 0,
+          searches:  action === "SEARCH" ? 1 : 0, // <-- new
         },
-        topSources: [{ pin: pinDoc._id, action, weight, at: now }]
+        topSources: [{
+          pin: (action !== "SEARCH" ? pinDoc?._id : undefined),
+          action, weight, at: now
+        }]
       });
     }
 
-    
+    // Decay, then add weight
     const decayed = applyDecay(doc.score, doc.lastInteractionAt, now);
     doc.score = decayed + weight;
 
-   
     const fieldMap = {
-      VIEW: "views", CLICK: "clicks", LIKE: "likes", SAVE: "saves",
-      COMMENT: "comments", DOWNLOAD: "downloads", SHARE: "shares"
+      VIEW: "views",
+      CLICK: "clicks",
+      LIKE: "likes",
+      SAVE: "saves",
+      COMMENT: "comments",
+      DOWNLOAD: "downloads",
+      SHARE: "shares",
+      SEARCH: "searches", // <-- new
     };
-    doc.counts[fieldMap[action]] = (doc.counts[fieldMap[action]] || 0) + 1;
+    const field = fieldMap[action];
+    doc.counts[field] = (doc.counts[field] || 0) + 1;
 
-    
-    doc.topSources.unshift({ pin: pinDoc._id, action, weight, at: now });
+    // Keep pin reference for non-search actions; omit for SEARCH
+    doc.topSources.unshift({
+      pin: (action !== "SEARCH" ? pinDoc?._id : undefined),
+      action, weight, at: now
+    });
     if (doc.topSources.length > 5) doc.topSources.length = 5;
 
     doc.level = levelFromScore(doc.score);
