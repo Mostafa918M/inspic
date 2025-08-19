@@ -1,16 +1,23 @@
+//modules
 const aqp= require('api-query-params');
-
-const asyncErrorHandler = require("../utils/asyncErrorHandler");
-const apiError = require("../utils/apiError");
-const logger = require("../utils/logger");
-const Pin = require("../models/pin.model");
-const User = require("../models/users.model");
-const sendResponse = require("../utils/sendResponse");
 const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
-
+//utils
+const asyncErrorHandler = require("../utils/asyncErrorHandler");
+const apiError = require("../utils/apiError");
+const logger = require("../utils/logger");
+const sendResponse = require("../utils/sendResponse");
 const { ensureDir, userBucketDir, bucketFor, moveIfNeeded, buildMediaUri, toPosix } = require("../utils/mediaUtils");
+//models
+const Pin = require("../models/pin.model");
+const User = require("../models/users.model");
+const Interaction = require("../models/interaction.model");
+const Board = require("../models/board.model");
+//services
+const { updateInterestsFromAction } = require("../services/interestService");
+const { recommendPinsForUser } = require('../services/recommendationService');
+
 
 
 const allowedImage = ["image/jpeg", "image/png"];
@@ -32,7 +39,7 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
   }
 
     const userId = req.user.id;
-    const visibility = req.body.privacy ?? "public";
+    const visibility = privacy ?? "public";
     const { vis, type } = bucketFor(visibility, req.file.mimetype);
 
     const finalDirAbs = path.resolve(userBucketDir(userId, vis, type));
@@ -214,11 +221,63 @@ const deletePin = asyncErrorHandler(async (req, res, next) => {
   return sendResponse(res, 200, "success", "Pin deleted", { id: pin._id });
 })
 
+const likedPins = asyncErrorHandler(async(req,res,next)=>{
+const userId = req.user.id;
+  const pin = await Pin.findById(req.params.pinId);
 
+  if (!pin) return next(new apiError("Pin not found", 404));
+  if (String(pin.publisher) === String(userId)) {
+    return next(new apiError("You cannot like your own pin", 403));
+  }
+  if (pin.likers.includes(userId)) {
+    return next(new apiError("You have already liked this pin", 400));
+  }
+  pin.likers.push(userId);
+  await pin.save();
+
+  await User.findByIdAndUpdate(userId, { $push: { likedPins: pin._id } });
+
+  await Interaction.create({
+    user: userId,
+    pin: pin._id,
+    action: "LIKE",
+    keywords: pin.keywords || []
+  });
+  await updateInterestsFromAction(userId, pin, "LIKE");
+  sendResponse(res, 200, "success", "Pin liked", { pin });
+})
+
+const getRecommendedPins = asyncErrorHandler(async (req, res, next) => {
+ const userId = req.user.id;
+  const limit = Math.min(Math.max(parseInt(req.query.limit || "30", 10), 1), 100);
+
+  let pins = await recommendPinsForUser(userId, { limit });
+
+  if (!pins.length) {
+    return sendResponse(res, 200, "success", "No recommendations found", { pins: [] }); //get popular pins later
+  }
+
+  // populate works on lean docs too
+  pins = await Pin.populate(pins, [
+    { path: "publisher", select: "username avatar" },
+    { path: "board", select: "name" }, 
+  ]);
+
+
+  pins = pins.map(p => ({
+    ...p,
+    likeCount: Array.isArray(p.likers) ? p.likers.length : 0,
+    commentCount: Array.isArray(p.comments) ? p.comments.length : 0,
+  }));
+
+  return sendResponse(res, 200, "success", "Recommended pins fetched", { pins });
+})
 
 module.exports = {
   createPin,
   getPins,
   updatePin,
   deletePin,
+  likedPins,
+  getRecommendedPins
 }

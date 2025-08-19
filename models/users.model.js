@@ -30,7 +30,7 @@ const userSchema = new mongoose.Schema(
     comments: [{ type: mongoose.Schema.Types.ObjectId, ref: "Comment" }],
     notifications: [{ type: mongoose.Schema.Types.ObjectId, ref: "Notification" }],
     savedSearches: [{ type: String, default: [] }],
-    interests: [{ type: String, default: [] }],
+    interests: [{ type: mongoose.Schema.Types.ObjectId, ref: "Interest" }],
 
      role: { type: String, enum: ["user", "admin"], default: "user" },
     googleId: { type: String, index: true },
