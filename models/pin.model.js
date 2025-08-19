@@ -7,6 +7,8 @@ pinSchema = new mongoose.Schema({
     privacy:{type:String, enum:["public", "private"], default:"public"},
     media:{
         uri:{type:String, required:true},
+        URL:{type:String, default:""},
+        filename:{type:String, required:true},
         type:{type:String, enum:["image", "video"]},
         thumbnail:{type:String, default:null},
     },

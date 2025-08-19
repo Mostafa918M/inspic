@@ -1,3 +1,4 @@
+const aqp= require('api-query-params');
 
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
 const apiError = require("../utils/apiError");
@@ -9,39 +10,15 @@ const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
 
+const { ensureDir, userBucketDir, bucketFor, moveIfNeeded, buildMediaUri, toPosix } = require("../utils/mediaUtils");
 
-// ---------- helpers ----------
-function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
 
-function userBucketDir(userId, vis, type) {
-  return path.join("uploads", "users", String(userId), "pins", vis, type);
-}
-
-function bucketFor(visibility, mimetype) {
-  const visKey = (visibility || "").toString().toLowerCase();
-  const vis = visKey === "private" ? "private" : "public"; 
-  const type = mimetype?.startsWith("image/") ? "images" : "videos";
-  return { vis, type };
-}
-
-async function moveIfNeeded(fromAbsPath, toDirAbs, filename) {
-  ensureDir(toDirAbs);
-  const toAbs = path.join(toDirAbs, filename);
-  if (path.resolve(fromAbsPath) !== path.resolve(toAbs)) {
-    await fsp.rename(fromAbsPath, toAbs);
-  }
-  return toAbs;
-}
-function toPosix(p) { return p.split(path.sep).join("/"); }
-
-function buildMediaUri({ userId, vis, type, filename }) {    
-  
-  return toPosix(`/api/v1/media/users/${userId}/pins/${vis}/${type}/${filename}`);
-}                                                             
-
+const allowedImage = ["image/jpeg", "image/png"];
+const allowedVideo = ["video/mp4", "video/mpeg", "video/quicktime"];
+const isAllowed = (mt) => allowedImage.includes(mt) || allowedVideo.includes(mt);
 // ---------- controller ----------
 const createPin = asyncErrorHandler(async (req, res, next) => {
-  const { title, description, link, keywords } = req.body;
+  const { title, description, link, keywords,privacy } = req.body;
   if(!title || !description) {
     return next(new apiError("Title and description are required", 400));
   }
@@ -49,47 +26,114 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
   if (req.file.size > (req.file.sizeLimit || Infinity)) {
     return next(new apiError("File exceeds allowed size", 400));
   }
+   if (!isAllowed(req.file.mimetype)) {
+    try { if (req.file.path) await fsp.unlink(req.file.path); } catch {}
+    return next(new apiError("Unsupported file type", 415));
+  }
 
     const userId = req.user.id;
-    const visibility = req.body.visibility ?? req.body.privacy ?? "public";
+    const visibility = req.body.privacy ?? "public";
     const { vis, type } = bucketFor(visibility, req.file.mimetype);
 
-    const finalDir = userBucketDir(userId, vis, type);
+    const finalDirAbs = path.resolve(userBucketDir(userId, vis, type));
+    const safeFilename = path.basename(req.file.filename);
+    const fromAbs = path.resolve(req.file.path);
+    const storedAbs = await moveIfNeeded(fromAbs, finalDirAbs, safeFilename);
 
 
       const uri = buildMediaUri({
       userId,
       vis,
       type,
-      filename: req.file.filename
+      filename: safeFilename
     });
 
-    const pin = await Pin.create({
-      owner: userId,
-      title: title,
-      description: description,
-      privacy: vis,
-      media: {
-       uri: uri,                                    
-    type: req.file.mimetype.startsWith("image/")  
-      ? "image"
-      : "video",
-    thumbnail: null,           
-      },
-        link: link || null,
-        keywords: keywords || [],
-        board: req.body.board || null,
-        publisher: userId,
-        likers: [],
-        comments: [],
-        downloadCount: 0,
-        pinReportCount: 0,
-    });
+    const pin = new Pin({
+    publisher: userId,
+    title,
+    description,
+    privacy: vis,
+    media: {
+      uri,
+      URL: "",                                         
+      filename: safeFilename,
+      type: req.file.mimetype.startsWith("image/") ? "image" : "video",
+      thumbnail: null,
+    },
+    link: link || null,
+    keywords: Array.isArray(keywords) ? keywords : (keywords ? [keywords] : []),
+
+  });
+  pin.media.URL = `/api/v1/pins/get-pin/${pin._id}/media`
+  await pin.save();
+
+
     await User.findByIdAndUpdate(userId,{ $push: { pins:pin._id  } })
     return sendResponse(res, 201, "success", "Pin created", { pin });
 
 });
-const getPins = asyncErrorHandler(async (req, res, next) => {})
+const getPins = asyncErrorHandler(async (req, res, next) => {
+ const userId = String(req.user.id);
+
+
+  const { filter, sort, skip = 0, limit = 20, projection } = aqp(req.query, {
+    sort: { whitelist: ["createdAt", "updatedAt", "downloadCount", "pinReportCount", "title"] }
+  });
+
+
+  const mongoFilter = { ...filter, publisher: userId };
+
+  
+  if (mongoFilter["media.type"]) {
+    const t = String(mongoFilter["media.type"]).toLowerCase();
+    if (t === "images") mongoFilter["media.type"] = "image";
+    if (t === "videos") mongoFilter["media.type"] = "video";
+  }
+
+  
+  const kwRaw = (req.query.kw || req.query.keywords || "").toString();
+  if (kwRaw) {
+    const kws = kwRaw.split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    const mode = String(req.query.kwMode || "any").toLowerCase();
+    if (kws.length) mongoFilter.keywords = mode === "all" ? { $all: kws } : { $in: kws };
+  }
+
+  
+  if (req.query.q) {
+    mongoFilter.$text = { $search: String(req.query.q), $caseSensitive: false, $diacriticSensitive: false };
+  }
+
+  
+  let cursor = Pin.find(mongoFilter);
+  if (projection) cursor = cursor.select(projection);
+
+  if (mongoFilter.$text) {
+    cursor = cursor
+      .select({ score: { $meta: "textScore" }, ...(projection || {}) })
+      .sort({ score: { $meta: "textScore" } });
+  } else if (sort) {
+    cursor = cursor.sort(sort);
+  }
+
+  const hardLimit = Math.min(100, Math.max(1, +limit || 20));
+  cursor = cursor.skip(+skip || 0).limit(hardLimit);
+
+  const [pins, total] = await Promise.all([cursor.lean(), Pin.countDocuments(mongoFilter)]);
+
+
+  const normalized = pins.map(p => ({
+    ...p,
+    media: { ...p.media, URL: p.media?.URL || `/api/v1/pins/get-pin/${p._id}/media` }
+  }));
+
+  return sendResponse(res, 200, "success", "Pins fetched", {
+    pins: normalized,
+    total,
+    limit: hardLimit,
+    skip: +skip || 0,
+  });
+
+})
 const updatePin = asyncErrorHandler(async (req, res, next) => {
 const pin = await Pin.findById(req.params.id);
   if (!pin) return next(new apiError("Pin not found", 404));
@@ -140,7 +184,37 @@ const pin = await Pin.findById(req.params.id);
   await pin.save();
   return sendResponse(res, 200, "success", "Pin updated", { pin });
 });
-const deletePin = asyncErrorHandler(async (req, res, next) => {})
+const deletePin = asyncErrorHandler(async (req, res, next) => {
+   const pin = await Pin.findById(req.params.id);
+  if (!pin) return next(new apiError("Pin not found", 404));
+
+  if (String(pin.publisher) !== String(req.user.id)) {
+    return next(new apiError("Forbidden", 403));
+  }
+
+  const typeDir = pin.media?.type === "image" ? "images" : "videos";
+  const filename = pin.media?.filename;
+  if (!filename) return next(new apiError("Media filename missing", 500));
+
+  
+  const candidates = [
+    path.resolve(userBucketDir(pin.publisher, "public",  typeDir), filename),
+    path.resolve(userBucketDir(pin.publisher, "private", typeDir), filename),
+  ];
+
+  for (const p of candidates) {
+    try { await fsp.unlink(p); } catch (e) { if (e?.code !== "ENOENT") logger?.error?.(e); }
+  }
+
+  await Promise.all([
+    Pin.deleteOne({ _id: pin._id }),
+    User.findByIdAndUpdate(pin.publisher, { $pull: { pins: pin._id } }),
+  ]);
+
+  return sendResponse(res, 200, "success", "Pin deleted", { id: pin._id });
+})
+
+
 
 module.exports = {
   createPin,

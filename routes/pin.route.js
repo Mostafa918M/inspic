@@ -6,8 +6,10 @@ const {
   getPins,
   updatePin,
   deletePin,
+  
 } = require("../controllers/pin.controller");
 
+const { getMedia } = require("../controllers/media.controller");
 
 
 const router = express.Router();
@@ -17,5 +19,6 @@ router.get("/get-pins", auth(), getPins);
 router.put("/update-pin/:id", auth(), updatePin);
 router.delete("/delete-pin/:id", auth(), deletePin);
 
+router.get("/get-pin/:id/media", auth(), getMedia);
 
 module.exports = router;
