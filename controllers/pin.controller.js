@@ -205,94 +205,120 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
   });
 const updatePin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
-  const { title, description, link, keywords, privacy, boards } = req.body;
-  const pin = await Pin.findById(req.params.id);
-  if (!pin) return next(new apiError("Pin not found", 404));
+    const { title, description, link, keywords, privacy, boards } = req.body;
 
-  if (pin.publisher != userId) {
-    return next(new apiError("Forbidden", 403));
-  }
-  
+    const pin = await Pin.findById(req.params.id);
+    if (!pin) return next(new apiError("Pin not found", 404));
 
-  const updates = {};
-  if (title) updates.title = title;
-  if (description) updates.description = description;
-  if (typeof link === "string") updates.link = link;
-
-  const newTitle = title ?? pin.title ?? "";
-  const newDesc  = description ?? pin.description ?? "";
-  const newLink  = (typeof link === "string" ? link : pin.link) || null;
-
-    const hashtagMatches = (newDesc.match(/#[\p{L}\p{N}_-]+/gu) || []).slice(0, 10);
-     const boardsArr = Array.isArray(boards) ? boards : (boards ? [boards] : (pin.boards || []));
-
-      let linkMeta = null;
-  if (newLink) {
-    try { linkMeta = await fetchPageMeta(newLink); } catch {}
-  }
-
-  const autoKeywords = setKeywordsSmart({
-    title: linkMeta?.title || newTitle,
-    description: [newDesc, linkMeta?.description].filter(Boolean).join(" | "),
-    boards: boardsArr,
-    fileName: pin.media?.filename || "",
-    hashtags: hashtagMatches
-  }, { max: 16 });
-
-  const provided = Array.isArray(keywords) ? keywords : (typeof keywords === "string" && keywords.trim() ? [keywords] : []);
-
-  const mergedKeywords = [...new Set([...(pin.keywords || []), ...provided, ...autoKeywords])];
-
-    updates.keywords = mergedKeywords;
-
-
- 
-  if (privacy) {
-    const newVisRaw = String(privacy).toLowerCase() === "private" ? "private" : "public";
-    const newVis = newVisRaw.toLowerCase() === "private" ? "private" : "public";
-
-    if (newVis !== pin.privacy) {
-      const type = pin.media?.type === "image" ? "images" : "videos";
-
-     
-      const filename =
-        pin.media?.filename ||
-        (pin.media?.path ? path.basename(pin.media.path) : null) ||
-        (pin.media?.uri ? path.basename(pin.media.uri) : null);
-
-      if (!filename) {
-        return next(new apiError("Existing media filename is missing", 500));
-      }
-
-      const newDir = userBucketDir(userId, newVis, type);
-      const fromAbs = pin.media?.path
-        ? path.resolve(pin.media.path)
-        : path.resolve(
-            userBucketDir(userId, pin.privacy || "public", type),
-            filename
-          ); 
-
-      const newAbs = await moveIfNeeded(
-        fromAbs,
-        path.resolve(newDir),
-        filename
-      );
-
-      updates.privacy = newVis;
-      updates["media.path"] = toPosix(newAbs);
-      updates["media.uri"] = buildMediaUri({
-        userId,
-        vis: newVis,
-        type,
-        filename,
-      }); 
-      updates["media.filename"] = filename; 
+    // Normalize publisher comparison (ObjectId vs string)
+    if (String(pin.publisher) !== String(userId)) {
+      return next(new apiError("Forbidden", 403));
     }
-  }
 
-  Object.assign(pin, updates);
-  await pin.save();
-  return sendResponse(res, 200, "success", "Pin updated", { pin });
+    // Prepare updates object
+    const updates = {};
+    if (typeof title === "string") updates.title = title;
+    if (typeof description === "string") updates.description = description;
+    if (typeof link === "string") updates.link = link;
+
+    const newTitle = (typeof title === "string" ? title : pin.title) ?? "";
+    const newDesc  = (typeof description === "string" ? description : pin.description) ?? "";
+    const newLink  = (typeof link === "string" ? link : pin.link) || null;
+
+    // Optional: extract hashtags (if you want them in keywords later)
+    const hashtagMatches = (newDesc.match(/#[\p{L}\p{N}_-]+/gu) || []).slice(0, 10);
+
+    // Normalize boards input (if you plan to allow updates.boards)
+    const boardsArr = Array.isArray(boards)
+      ? boards
+      : (typeof boards !== "undefined" && boards !== null ? [boards] : (pin.boards || []));
+
+    // ---- SAFETY: declare before use & use a clearer name
+    const providedKeywords = Array.isArray(keywords)
+      ? keywords
+      : (typeof keywords === "string" && keywords.trim() ? [keywords] : []);
+
+    // Fetch link metadata only when we truly have a string URL
+    let linkMeta = null;
+    if (typeof newLink === "string" && newLink.trim()) {
+      try {
+        // Basic URL validation to avoid throwing inside fetch
+        new URL(newLink);
+        linkMeta = await fetchPageMeta(newLink);
+      } catch {
+        linkMeta = null;
+      }
+    }
+
+    // Build an absolute path to the CURRENT stored media for image text extraction
+    const type = pin.media?.type === "image" ? "images" : "videos";
+    const filename =
+      pin.media?.filename ||
+      (pin.media?.path ? path.basename(pin.media.path) : null) ||
+      (pin.media?.uri ? path.basename(pin.media.uri) : null);
+
+    // If there is media, resolve its current absolute path (for OCR/extraction)
+    let currentAbs = null;
+    if (filename) {
+      const currentDir = pin.media?.path
+        ? path.dirname(path.resolve(pin.media.path))
+        : path.resolve(userBucketDir(userId, pin.privacy || "public", type));
+      currentAbs = path.resolve(currentDir, filename);
+    }
+
+    // Extract text/content from the existing image (guarded)
+    let extractedImage = null;
+    if (pin.media?.type === "image" && currentAbs) {
+      try {
+        extractedImage = await extractContentFromImage(currentAbs);
+      } catch {
+        extractedImage = null;
+      }
+    }
+
+    // ---- SAFETY: declare finalKeywords properly
+    const finalKeywords = generateKeywords(
+      newTitle,
+      newDesc,
+      // include provided and hashtags (dedupe inside generateKeywords if needed)
+      [...providedKeywords, ...hashtagMatches],
+      linkMeta,
+      extractedImage
+    );
+
+    updates.keywords = finalKeywords;
+
+    // If you want to actually update boards, uncomment:
+    // if (boardsArr && boardsArr.length) updates.boards = boardsArr;
+
+    // Handle privacy change and move file if needed
+    if (typeof privacy !== "undefined" && privacy !== null) {
+      const newVisRaw = String(privacy).toLowerCase() === "private" ? "private" : "public";
+      const newVis = newVisRaw === "private" ? "private" : "public";
+
+      if (newVis !== pin.privacy) {
+        if (!filename) {
+          return next(new apiError("Existing media filename is missing", 500));
+        }
+
+        const newDir = userBucketDir(userId, newVis, type);
+        const fromAbs = pin.media?.path
+          ? path.resolve(pin.media.path)
+          : path.resolve(userBucketDir(userId, pin.privacy || "public", type), filename);
+
+        const newAbs = await moveIfNeeded(fromAbs, path.resolve(newDir), filename);
+
+        updates.privacy = newVis;
+        updates["media.path"] = toPosix(newAbs);
+        updates["media.uri"] = buildMediaUri({ userId, vis: newVis, type, filename });
+        updates["media.filename"] = filename;
+      }
+    }
+
+    Object.assign(pin, updates);
+    await pin.save();
+
+    return sendResponse(res, 200, "success", "Pin updated", { pin });
 });
 const deletePin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;

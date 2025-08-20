@@ -55,8 +55,7 @@ async function compressToUnder1MB(imagePath) {
   const tmpPath = path.join(os.tmpdir(), `ocr-${Date.now()}.webp`);
   fs.writeFileSync(tmpPath, buffer);
 
-  console.log(
-    `Compressed size: ${(size / 1024).toFixed(2)} KB (quality: ${quality + 5})`
+  logger.info(`Compressed image saved to ${tmpPath}, size: ${(size / 1024).toFixed(2)} KB`
   );
 
   return tmpPath;
@@ -80,6 +79,7 @@ const getText = (r) => r?.ParsedResults?.[0]?.ParsedText?.trim() || "";
   } finally {
     // Clean up temp file
     fs.unlink(tmpPath, () => {});
+    logger.info(`Temporary file ${tmpPath} deleted`);
   }
 }
 

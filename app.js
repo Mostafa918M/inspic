@@ -13,6 +13,7 @@ const pinRoute = require('./routes/pin.route');
 
 
 
+
 const app = express()
 const UPLOADS_ROOT = path.resolve("uploads");
 
@@ -33,6 +34,7 @@ app.use('/media',  express.static(UPLOADS_ROOT, {
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/users',userRoute);
 app.use('/api/v1/pins', pinRoute);
+
 
 
 
