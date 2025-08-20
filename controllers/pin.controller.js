@@ -16,7 +16,7 @@ const {
   buildMediaUri,
   toPosix,
 } = require("../utils/mediaUtils");
-const {setKeywordsSmart} = require("../utils/keywords");
+const {generateKeywords} = require("../utils/keywords");
 const {fetchPageMeta} = require("../utils/fetchPageMeta");
 //models
 const Pin = require("../models/pin.model");
@@ -28,6 +28,8 @@ const Comment = require("../models/comments.model");
 const { updateInterestsFromAction } = require("../services/interestService");
 const { recommendPinsForUser } = require("../services/recommendationService");
 const { log } = require("console");
+const { console } = require("inspector");
+const { extractContentFromImage } = require("../utils/readImage");
 
 
 const norm = (s) => s.trim().toLowerCase();
@@ -75,24 +77,18 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
     filename: safeFilename,
   });
   const provided = Array.isArray(keywords) ? keywords : keywords ? [keywords] : [];
-  let autoKeywords = [];
+  
 
-  const hashtagMatches = (description.match(/#[\p{L}\p{N}_-]+/gu) || []).slice(0, 10);
   let linkMeta = null;
   if (link) {
     linkMeta = await fetchPageMeta(link); 
   }
-  console.log(linkMeta);
 
-  autoKeywords = setKeywordsSmart({
-    title: linkMeta?.title || title,
-    description: [description, linkMeta?.description].filter(Boolean).join(" | "),
-    boards: Array.isArray(boards) ? boards : (boards ? [boards] : []),
-    fileName: req.file.originalname || req.file.filename || "",
-    hashtags: hashtagMatches
-  }, { max: 16 });
+ 
 
-  const finalKeywords = [...new Set([...provided, ...autoKeywords])];
+  const extractedImage = await extractContentFromImage(storedAbs);
+   finalKeywords = generateKeywords(title,description,provided,linkMeta,extractedImage);
+
 
   const pin = new Pin({
     publisher: userId,
@@ -114,7 +110,9 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
 
   await User.findByIdAndUpdate(userId, { $push: { pins: pin._id } });
   logger.info('Pin: pin Created Successfully', { pinId: pin._id, userId });
+  
   return sendResponse(res, 201, "success", "Pin created", { pin });
+  
 });
   const getPins = asyncErrorHandler(async (req, res, next) => {
   const userId = String(req.user.id);
@@ -211,10 +209,10 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
   const pin = await Pin.findById(req.params.id);
   if (!pin) return next(new apiError("Pin not found", 404));
 
- 
-  if (pin.publisher !== userId) {
+  if (pin.publisher != userId) {
     return next(new apiError("Forbidden", 403));
   }
+  
 
   const updates = {};
   if (title) updates.title = title;

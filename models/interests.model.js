@@ -15,7 +15,7 @@ const interestSchema = new mongoose.Schema({
    user: {type: mongoose.Schema.Types.ObjectId, ref: "User", index: true, required: true},
    level: {type: Number, default: 0, min: 0, max: 100},
    keyword:   { type: String, required: true },
-    normKey:   { type: String, required: true, index: true },
+  normKey:   { type: String, required: true, index: true },
    score:     { type: Number, default: 0, index: true },
 
    counts: {

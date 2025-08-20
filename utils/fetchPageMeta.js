@@ -1,10 +1,11 @@
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
+const ApiError = require("../utils/apiError");
 
 async function fetchPageMeta(url) {
   try {
     const resp = await fetch(url, { timeout: 7000 });
-    if (!resp.ok) return null;
+    if (!resp.ok) throw new Error(`Failed to fetch: ${resp.status} ${resp.statusText}`);
     const html = await resp.text();
     const $ = cheerio.load(html);
 
@@ -12,12 +13,17 @@ async function fetchPageMeta(url) {
     const ogDesc  = $('meta[property="og:description"]').attr("content");
     const title   = $("title").text();
     const metaDesc= $('meta[name="description"]').attr("content");
+    const metaKeywords = $('meta[name="keywords"]').attr("content");
 
     return {
-      title: ogTitle || title || "",
-      description: ogDesc || metaDesc || ""
+      title: (ogTitle || title || "").trim(),
+      description: (ogDesc || metaDesc || "").trim(),
+      keywords: metaKeywords
+        ? metaKeywords.split(",").map(k => k.trim()).filter(Boolean)
+        : []
     };
-  } catch {
+  } catch (e) {
+    // Return null on failure, not an ApiError instance
     return null;
   }
 }

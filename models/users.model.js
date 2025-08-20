@@ -20,7 +20,6 @@ const userSchema = new mongoose.Schema(
 
     
     bio: { type: String, default: "" },
-    friends: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     boards: [{ type: mongoose.Schema.Types.ObjectId, ref: "Board" }],
