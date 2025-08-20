@@ -3,7 +3,7 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 
 function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
 function sanitizeId(id = "") {

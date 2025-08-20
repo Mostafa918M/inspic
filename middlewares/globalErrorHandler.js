@@ -1,4 +1,4 @@
-const apiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 
 
@@ -25,27 +25,27 @@ const sendErrorForProd = (err, res) => {
 
 // JWT error handlers
 const handleJwtInvalidSignature = () =>
-  new apiError("Invalid token, please login again", 401);
+  new ApiError("Invalid token, please login again", 401);
 
 const handleJwtExpired = () =>
-  new apiError("Your token has expired, please login again ", 401);
+  new ApiError("Your token has expired, please login again ", 401);
 
 // Multer error handlers
 const handleMulterErrors = (err) => {
   if (err.code === "LIMIT_FILE_SIZE") {
-    return new apiError("File too large. Maximum size allowed is 10MB", 400);
+    return new ApiError("File too large. Maximum size allowed is 10MB", 400);
   }
   if (err.code === "LIMIT_FILE_COUNT") {
-    return new apiError("Too many files uploaded", 400);
+    return new ApiError("Too many files uploaded", 400);
   }
   if (err.code === "LIMIT_UNEXPECTED_FILE") {
-    return new apiError(`Unexpected field: ${err.field}`, 400);
+    return new ApiError(`Unexpected field: ${err.field}`, 400);
   }
   if (err.code === "LIMIT_PART_COUNT") {
-    return new apiError("Too many parts in multipart data", 400);
+    return new ApiError("Too many parts in multipart data", 400);
   }
   if (err.message && err.message.includes("Invalid file type")) {
-    return new apiError(
+    return new ApiError(
       "Invalid file type. Please upload a supported file format",
       400
     );
@@ -54,22 +54,22 @@ const handleMulterErrors = (err) => {
 };
 const handleSystemErrors = (err) => {
   if (err.code === "ENOENT") {
-    return new apiError("File or directory not found", 404);
+    return new ApiError("File or directory not found", 404);
   }
   if (err.code === "EACCES") {
-    return new apiError("Permission denied to access the resource", 403);
+    return new ApiError("Permission denied to access the resource", 403);
   }
   if (err.code === "EMFILE") {
-    return new apiError("Too many open files on the server", 503);
+    return new ApiError("Too many open files on the server", 503);
   }
   if (err.code === "ECONNREFUSED") {
-    return new apiError("Connection refused by the server", 503);
+    return new ApiError("Connection refused by the server", 503);
   }
   if (err.code === "ETIMEDOUT") {
-    return new apiError("The network operation timed out", 504);
+    return new ApiError("The network operation timed out", 504);
   }
   if (err.code === "EHOSTUNREACH") {
-    return new apiError("The host is unreachable", 503);
+    return new ApiError("The host is unreachable", 503);
   }
   return err; // Return the original error if not handled
 };
@@ -78,24 +78,24 @@ const handleSystemErrors = (err) => {
 const handleMongoErrors = (err) => {
   if (err.name === "ValidationError") {
     const errors = Object.values(err.errors).map((val) => val.message);
-    return new apiError(`Validation Error: ${errors.join(". ")}`, 400);
+    return new ApiError(`Validation Error: ${errors.join(". ")}`, 400);
   }
   if (err.name === "CastError") {
-    return new apiError(`Invalid ${err.path}: ${err.value}`, 400);
+    return new ApiError(`Invalid ${err.path}: ${err.value}`, 400);
   }
   if (err.code === 11000) {
     const field = Object.keys(err.keyValue)[0];
     const value = err.keyValue[field];
-    return new apiError(
+    return new ApiError(
       `Duplicate field value: ${field} = ${value}. Please use another value!`,
       400
     );
   }
   if (err.name === "MongoNetworkError") {
-    return new apiError("Database connection failed", 500);
+    return new ApiError("Database connection failed", 500);
   }
   if (err.name === "MongoServerError") {
-    return new apiError("Database server error", 500);
+    return new ApiError("Database server error", 500);
   }
   return err; // Return the original error if not handled
 };
@@ -173,7 +173,7 @@ const globalError = (err, req, res, next) => {
         stack: error.stack,
         url: req.originalUrl,
       });
-      error = new apiError("Something went wrong!", 500);
+      error = new ApiError("Something went wrong!", 500);
     }
 
     sendErrorForProd(error, res);
@@ -182,7 +182,7 @@ const globalError = (err, req, res, next) => {
 
 // Handle 404 errors for undefined routes
 const handleNotFound = (req, res, next) => {
-  const error = new apiError(`Route ${req.originalUrl} not found`, 404);
+  const error = new ApiError(`Route ${req.originalUrl} not found`, 404);
   next(error);
 };
 

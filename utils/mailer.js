@@ -1,8 +1,8 @@
 const nodemailer = require("nodemailer");
-const apiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 
 function required(name) {
-  if (!process.env[name]) throw new apiError(`Missing env: ${name}`);
+  if (!process.env[name]) throw new ApiError(`Missing env: ${name}`);
   return process.env[name];
 }
 const transporter = nodemailer.createTransport({

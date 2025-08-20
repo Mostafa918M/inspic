@@ -9,7 +9,7 @@ const { handleNotFound, globalError } = require('./middlewares/globalErrorHandle
 const authRoute = require('./routes/auth.route');
 const userRoute = require('./routes/user.route');
 const pinRoute = require('./routes/pin.route');
-
+const boardRoute = require('./routes/board.route');
 
 
 
@@ -34,9 +34,7 @@ app.use('/media',  express.static(UPLOADS_ROOT, {
 app.use('/api/v1/auth', authRoute);
 app.use('/api/v1/users',userRoute);
 app.use('/api/v1/pins', pinRoute);
-
-
-
+app.use('/api/v1/boards', boardRoute);
 
 app.use(handleNotFound);
 app.use(globalError);

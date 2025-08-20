@@ -3,7 +3,7 @@ const Tesseract = require("tesseract.js");
 const mod = require("ocr-space-api-wrapper");
 const ocrSpaceApi = mod.ocrSpace || mod.default || mod;
 const logger = require("../utils/logger");
-const apiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const sharp = require("sharp");
 const fs = require("fs");
 const path = require("path");
@@ -28,7 +28,7 @@ const apiKey = process.env.OCR_API_KEY;
 //     return text;
 //   } catch (err) {
 //     logger.error("Error extracting text from image", { error: err.message });
-//     throw new apiError("Failed to extract text from image", 500);
+//     throw new ApiError("Failed to extract text from image", 500);
 //   }
 // }
 
@@ -75,7 +75,7 @@ const getText = (r) => r?.ParsedResults?.[0]?.ParsedText?.trim() || "";
     }
      return text;
   }catch (err) {
-    throw new apiError(err.message || "OCR processing failed", 500);
+    throw new ApiError(err.message || "OCR processing failed", 500);
   } finally {
     // Clean up temp file
     fs.unlink(tmpPath, () => {});

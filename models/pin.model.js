@@ -12,7 +12,6 @@ pinSchema = new mongoose.Schema({
         type:{type:String, enum:["image", "video"]},
         thumbnail:{type:String, default:null},
     },
-    board:{type:mongoose.Schema.Types.ObjectId, ref:"Board", default:null},
     publisher:{type:mongoose.Schema.Types.ObjectId, ref:"User", required:true},
     likers:[{type:mongoose.Schema.Types.ObjectId, ref:"User"}],
     comments:[{type:mongoose.Schema.Types.ObjectId, ref:"Comment"}],

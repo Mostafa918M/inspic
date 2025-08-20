@@ -5,7 +5,7 @@ const fs = require("fs");
 const fsp = fs.promises;
 //utils
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
-const apiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const logger = require("../utils/logger");
 const sendResponse = require("../utils/sendResponse");
 const {
@@ -48,17 +48,17 @@ const isAllowed = (mt) =>
 const createPin = asyncErrorHandler(async (req, res, next) => {
   const { title, description, link, keywords, privacy, boards} = req.body;
   if (!title || !description) {
-    return next(new apiError("Title and description are required", 400));
+    return next(new ApiError("Title and description are required", 400));
   }
-  if (!req.file) return next(new apiError("Media file is required", 400));
+  if (!req.file) return next(new ApiError("Media file is required", 400));
   if (req.file.size > (req.file.sizeLimit || Infinity)) {
-    return next(new apiError("File exceeds allowed size", 400));
+    return next(new ApiError("File exceeds allowed size", 400));
   }
   if (!isAllowed(req.file.mimetype)) {
     try {
       if (req.file.path) await fsp.unlink(req.file.path);
     } catch {}
-    return next(new apiError("Unsupported file type", 415));
+    return next(new ApiError("Unsupported file type", 415));
   }
 
   const userId = req.user.id;
@@ -208,14 +208,12 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
     const { title, description, link, keywords, privacy, boards } = req.body;
 
     const pin = await Pin.findById(req.params.id);
-    if (!pin) return next(new apiError("Pin not found", 404));
+    if (!pin) return next(new ApiError("Pin not found", 404));
 
-    // Normalize publisher comparison (ObjectId vs string)
     if (String(pin.publisher) !== String(userId)) {
-      return next(new apiError("Forbidden", 403));
+      return next(new ApiError("Forbidden", 403));
     }
 
-    // Prepare updates object
     const updates = {};
     if (typeof title === "string") updates.title = title;
     if (typeof description === "string") updates.description = description;
@@ -225,24 +223,17 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
     const newDesc  = (typeof description === "string" ? description : pin.description) ?? "";
     const newLink  = (typeof link === "string" ? link : pin.link) || null;
 
-    // Optional: extract hashtags (if you want them in keywords later)
-    const hashtagMatches = (newDesc.match(/#[\p{L}\p{N}_-]+/gu) || []).slice(0, 10);
 
-    // Normalize boards input (if you plan to allow updates.boards)
-    const boardsArr = Array.isArray(boards)
-      ? boards
-      : (typeof boards !== "undefined" && boards !== null ? [boards] : (pin.boards || []));
+    
+   
 
-    // ---- SAFETY: declare before use & use a clearer name
     const providedKeywords = Array.isArray(keywords)
       ? keywords
       : (typeof keywords === "string" && keywords.trim() ? [keywords] : []);
 
-    // Fetch link metadata only when we truly have a string URL
     let linkMeta = null;
     if (typeof newLink === "string" && newLink.trim()) {
       try {
-        // Basic URL validation to avoid throwing inside fetch
         new URL(newLink);
         linkMeta = await fetchPageMeta(newLink);
       } catch {
@@ -250,14 +241,12 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
       }
     }
 
-    // Build an absolute path to the CURRENT stored media for image text extraction
     const type = pin.media?.type === "image" ? "images" : "videos";
     const filename =
       pin.media?.filename ||
       (pin.media?.path ? path.basename(pin.media.path) : null) ||
       (pin.media?.uri ? path.basename(pin.media.uri) : null);
 
-    // If there is media, resolve its current absolute path (for OCR/extraction)
     let currentAbs = null;
     if (filename) {
       const currentDir = pin.media?.path
@@ -266,7 +255,6 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
       currentAbs = path.resolve(currentDir, filename);
     }
 
-    // Extract text/content from the existing image (guarded)
     let extractedImage = null;
     if (pin.media?.type === "image" && currentAbs) {
       try {
@@ -276,29 +264,24 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
       }
     }
 
-    // ---- SAFETY: declare finalKeywords properly
     const finalKeywords = generateKeywords(
       newTitle,
       newDesc,
-      // include provided and hashtags (dedupe inside generateKeywords if needed)
-      [...providedKeywords, ...hashtagMatches],
+      [...providedKeywords],
       linkMeta,
       extractedImage
     );
 
     updates.keywords = finalKeywords;
 
-    // If you want to actually update boards, uncomment:
-    // if (boardsArr && boardsArr.length) updates.boards = boardsArr;
-
-    // Handle privacy change and move file if needed
+ 
     if (typeof privacy !== "undefined" && privacy !== null) {
       const newVisRaw = String(privacy).toLowerCase() === "private" ? "private" : "public";
       const newVis = newVisRaw === "private" ? "private" : "public";
 
       if (newVis !== pin.privacy) {
         if (!filename) {
-          return next(new apiError("Existing media filename is missing", 500));
+          return next(new ApiError("Existing media filename is missing", 500));
         }
 
         const newDir = userBucketDir(userId, newVis, type);
@@ -323,18 +306,18 @@ const updatePin = asyncErrorHandler(async (req, res, next) => {
 const deletePin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   const pinId = req.params.id;
-  if (!userId) return next(new apiError("Unauthorized", 401));
+  if (!userId) return next(new ApiError("Unauthorized", 401));
 
   const pin = await Pin.findById(pinId);
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
 
   if (String(pin.publisher) !== String(req.user.id)) {
-    return next(new apiError("Forbidden", 403));
+    return next(new ApiError("Forbidden", 403));
   }
 
   const typeDir = pin.media?.type === "image" ? "images" : "videos";
   const filename = pin.media?.filename;
-  if (!filename) return next(new apiError("Media filename missing", 500));
+  if (!filename) return next(new ApiError("Media filename missing", 500));
 
   const candidates = [
     path.resolve(userBucketDir(pin.publisher, "public", typeDir), filename),
@@ -361,12 +344,12 @@ const likedPins = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   const pin = await Pin.findById(req.params.id);
 
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
   if (String(pin.publisher) === String(userId)) {
-    return next(new apiError("You cannot like your own pin", 403));
+    return next(new ApiError("You cannot like your own pin", 403));
   }
   if (pin.likers.includes(userId)) {
-    return next(new apiError("You have already liked this pin", 400));
+    return next(new ApiError("You have already liked this pin", 400));
   }
   pin.likers.push(userId);
   await pin.save();
@@ -388,12 +371,12 @@ const unlikePin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   const pin = await Pin.findById(req.params.id);
 
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
   if (String(pin.publisher) === String(userId)) {
-    return next(new apiError("You cannot unlike your own pin", 403));
+    return next(new ApiError("You cannot unlike your own pin", 403));
   }
   if (!pin.likers.includes(userId)) {
-    return next(new apiError("You have not liked this pin", 400));
+    return next(new ApiError("You have not liked this pin", 400));
   }
 
   pin.likers.pull(userId);
@@ -408,13 +391,13 @@ const unlikePin = asyncErrorHandler(async (req, res, next) => {
 
 const addComment = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
-  if (!userId) return next(new apiError("Unauthorized", 401));
+  if (!userId) return next(new ApiError("Unauthorized", 401));
   const pinId = req.params.id;
   const {text} = req.body;
-  if (!text) return next(new apiError("Comment text is required", 400));
+  if (!text) return next(new ApiError("Comment text is required", 400));
 
   const pin = await Pin.findById(pinId);
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
 
   const comment = await Comment.create({
     user: userId,
@@ -438,18 +421,18 @@ const addComment = asyncErrorHandler(async (req, res, next) => {
 const getComments = asyncErrorHandler(async (req, res, next) => {
   const pinId = req.params.id;
   const pin = await Pin.findById(pinId).populate({ path: "comments", populate: { path: "user", select: "username avatar" } });
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
   sendResponse(res, 200, "success", "Comments fetched", { comments: pin.comments });
 });
 const addReplay = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
-  if (!userId) return next(new apiError("Unauthorized", 401));
+  if (!userId) return next(new ApiError("Unauthorized", 401));
   const commentId = req.params.commentId;
   const { text } = req.body;
-  if (!text) return next(new apiError("Replay text is required", 400));
+  if (!text) return next(new ApiError("Replay text is required", 400));
 
 const parentComment = await Comment.findById(commentId);
-  if (!parentComment) return next(new apiError("Comment not found", 404));
+  if (!parentComment) return next(new ApiError("Comment not found", 404));
   const reply = await Comment.create({
     user: userId,
     pin: parentComment.pin,
@@ -475,16 +458,16 @@ const parentComment = await Comment.findById(commentId);
 
 const deleteComment = asyncErrorHandler(async (req, res, next) => {
  const userId = req.user.id;
-  if (!userId) return next(new apiError("Unauthorized", 401));
+  if (!userId) return next(new ApiError("Unauthorized", 401));
 
   const { commentId } = req.params;
 
   const comment = await Comment.findById(commentId).lean();
-  if (!comment) return next(new apiError("Comment not found", 404));
+  if (!comment) return next(new ApiError("Comment not found", 404));
 
   const isOwner = String(comment.user) === String(userId);
   const isAdmin = Boolean(req.user?.isAdmin);
-  if (!isOwner && !isAdmin) return next(new apiError("Forbidden", 403));
+  if (!isOwner && !isAdmin) return next(new ApiError("Forbidden", 403));
 
   const queue = [commentId];
   const toDelete = [];
@@ -554,13 +537,13 @@ const getRecommendedPins = asyncErrorHandler(async (req, res, next) => {
 const reportPin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   const pinId = req.params.id;
-  if (!userId) return next(new apiError("Unauthorized", 401));
+  if (!userId) return next(new ApiError("Unauthorized", 401));
 
   const pin = await Pin.findById(pinId);
-  if (!pin) return next(new apiError("Pin not found", 404));
+  if (!pin) return next(new ApiError("Pin not found", 404));
 
   if (pin.publisher === userId) {
-    return next(new apiError("You cannot report your own pin", 403));
+    return next(new ApiError("You cannot report your own pin", 403));
   }
 
   pin.pinReportCount = (pin.pinReportCount || 0) + 1;
