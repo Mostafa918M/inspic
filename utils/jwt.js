@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 const logger = require("./logger");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 
 const JWT_SECRET_REFRESH = process.env.JWT_SECRET_REFRESH;
 const JWT_SECRET_ACCESS = process.env.JWT_SECRET_ACCESS;

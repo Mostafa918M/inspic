@@ -1,6 +1,6 @@
 const logger = require("../utils/logger");
 const sendResponse = require("../utils/sendResponse");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
 const User = require("../models/users.model");
 

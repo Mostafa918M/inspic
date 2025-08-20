@@ -2,7 +2,7 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/users.model");
 const JWT_SECRET_ACCESS = process.env.JWT_SECRET_ACCESS;
-const apiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 
 function authMiddleware(allowedUsers = ["user"]) {
   return async function (req, res, next) {
@@ -21,12 +21,12 @@ function authMiddleware(allowedUsers = ["user"]) {
     
       const user = await User.findById(decoded.id).select("role tokenVersion");
       if (!user) {
-        return next(new apiError("Invalid or expired token, please login again", 401));
+        return next(new ApiError("Invalid or expired token, please login again", 401));
       }
 
       if ((user.tokenVersion || 0) !== (decoded.tokenVersion || 0)) {
         
-        return next(new apiError("Token revoked. Please login again.", 401));
+        return next(new ApiError("Token revoked. Please login again.", 401));
       }
 
       req.user = { ...decoded, role: user.role };
@@ -36,7 +36,7 @@ function authMiddleware(allowedUsers = ["user"]) {
 
       next();
     } catch (err) {
-      return next(new apiError("Invalid or expired token, please login again", 401));
+      return next(new ApiError("Invalid or expired token, please login again", 401));
     }
   };
 }

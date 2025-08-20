@@ -1,5 +1,5 @@
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const User = require("../models/users.model");
 const bcrypt = require("bcrypt");
 const passwordValidator = require('../utils/passwordValidator');

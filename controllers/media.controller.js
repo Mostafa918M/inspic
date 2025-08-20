@@ -1,4 +1,4 @@
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
 const Pin = require("../models/pin.model");
 const { toPosix } = require("../utils/mediaUtils");

@@ -1,6 +1,6 @@
 const fetch = require("node-fetch");
 const cheerio = require("cheerio");
-const ApiError = require("../utils/apiError");
+const ApiError = require("../utils/ApiError");
 
 async function fetchPageMeta(url) {
   try {
