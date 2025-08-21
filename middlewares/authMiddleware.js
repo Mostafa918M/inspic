@@ -24,6 +24,10 @@ function authMiddleware(allowedUsers = ["user"]) {
         return next(new ApiError("Invalid or expired token, please login again", 401));
       }
 
+      if(user.isEmailVerified === false) {
+        return next(new ApiError("Email not verified, please verify your email", 403));
+      }
+
       if ((user.tokenVersion || 0) !== (decoded.tokenVersion || 0)) {
         
         return next(new ApiError("Token revoked. Please login again.", 401));

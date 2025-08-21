@@ -24,7 +24,7 @@ const userSchema = new mongoose.Schema(
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     boards: [{ type: mongoose.Schema.Types.ObjectId, ref: "Board" }],
     pins: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
-    bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
+    bookmarkedPins: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
     likedPins: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
     notifications: [{ type: mongoose.Schema.Types.ObjectId, ref: "Notification" }],
     savedSearches: [{ type: [String], default: [] }],

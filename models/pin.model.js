@@ -14,6 +14,7 @@ pinSchema = new mongoose.Schema({
     },
     publisher:{type:mongoose.Schema.Types.ObjectId, ref:"User", required:true},
     likers:[{type:mongoose.Schema.Types.ObjectId, ref:"User"}],
+    bookmarkedBy:[{type:mongoose.Schema.Types.ObjectId, ref:"User"}],
     comments:[{type:mongoose.Schema.Types.ObjectId, ref:"Comment"}],
     keywords:{type:[String], default:[]},
     downloadCount:{type:Number, default:0},

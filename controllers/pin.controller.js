@@ -459,8 +459,6 @@ const parentComment = await Comment.findById(commentId);
     sendResponse(res, 201, "success", "Reply created", { reply });
 
 })
-
-
 const deleteComment = asyncErrorHandler(async (req, res, next) => {
  const userId = req.user.id;
   if (!userId) return next(new ApiError("Unauthorized", 401));
@@ -557,6 +555,79 @@ const reportPin = asyncErrorHandler(async (req, res, next) => {
   logger.info('Pin: Pin reported successfully', { pinId, userId });
   sendResponse(res, 200, "success", "Pin reported", { pin });
 });
+const addBookmark = asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const pinId = req.params.id;
+  if (!userId) return next(new ApiError("Unauthorized", 401));
+  const pin = await Pin.findById(pinId);
+  if (!pin) return next(new ApiError("Pin not found", 404));
+  if (pin.bookmarkedBy.includes(userId)) {
+    return next(new ApiError("You have already bookmarked this pin", 400));
+  }
+  pin.bookmarkedBy.push(userId);
+  await pin.save();
+
+  await User.findByIdAndUpdate(userId, { $addToSet: { bookmarkedPins: pin._id } });
+
+  logger.info('Pin: Pin bookmarked successfully', { pinId, userId });
+  await Interaction.create({
+    user: userId,
+    pin: pin._id,
+    action: "SAVE",
+    keywords: pin.keywords || [],
+  });
+  await updateInterestsFromAction(userId, pin, "SAVE");
+   const updatedPin = await Pin.findById(pin._id)
+    .select("title description media bookmarkedBy");
+  sendResponse(res, 200, "success", "Pin bookmarked", { updatedPin });
+});
+const removeBookmark = asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user?.id;
+  const pinId = req.params?.id;
+
+  if (!userId) return next(new ApiError("Unauthorized", 401));
+
+  const pin = await Pin.findById(pinId)
+  if (!pin) return next(new ApiError("Pin not found", 404));
+
+
+  const pinUpdate = await Pin.updateOne(
+    { _id: pin._id },
+    { $pull: { bookmarkedBy: userId } }
+  );
+
+   if (pinUpdate.modifiedCount === 0) {
+    return next(new ApiError("You have not bookmarked this pin", 400));
+  }
+  
+  await User.updateOne(
+    { _id: userId },
+    { $pull: { bookmarkedPins: pin._id } }
+  );
+
+  logger.info("Pin: Pin bookmark removed successfully", { pinId: pin._id.toString(), userId });
+
+  const updatedPin = await Pin.findById(pin._id)
+    .select("title description media bookmarkedBy");
+
+  sendResponse(res, 200, "success", "Pin bookmark removed", { pin: updatedPin });
+});
+const getBookmarkedPins = asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  if (!userId) return next(new ApiError("Unauthorized", 401));
+  const user = await User.findById(userId).populate({
+    path: "bookmarkedPins",
+    select: "title description media",
+  });
+
+  if (!user) return next(new ApiError("User not found", 404));
+
+  sendResponse(res, 200, "success", "Bookmarked pins fetched", {
+    pins: user.bookmarkedPins,
+  });
+});
+
+
 
 module.exports = {
   createPin,
@@ -570,5 +641,8 @@ module.exports = {
   addReplay,
   deleteComment,
   getRecommendedPins,
-  reportPin
+  reportPin,
+  addBookmark,
+  removeBookmark,
+  getBookmarkedPins,
 };

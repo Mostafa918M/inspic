@@ -13,7 +13,10 @@ const {
   addReplay,
   deleteComment,
   getRecommendedPins,
-  reportPin
+  reportPin,
+  addBookmark,
+  removeBookmark,
+  getBookmarkedPins
   
 } = require("../controllers/pin.controller");
 
@@ -37,8 +40,12 @@ router.delete("/comment/:commentId", auth(), deleteComment);
 router.put("/update-pin/:id", auth(), updatePin);
 router.delete("/delete-pin/:id", auth(), deletePin);
 router.get("/:id/media", auth(), getMedia);
-router.get("/:id/download", auth(), downloadMedia);
 
+router.post("/:id/bookmark", auth(), addBookmark);
+router.delete("/:id/bookmark", auth(), removeBookmark);
+router.get("/bookmarked-pins", auth(), getBookmarkedPins);
+
+router.get("/:id/download", auth(), downloadMedia);
 router.post("/:id/report", auth(), reportPin);
 
 module.exports = router;
