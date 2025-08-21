@@ -16,8 +16,8 @@ const {
   buildMediaUri,
   toPosix,
 } = require("../utils/mediaUtils");
-const {generateKeywords} = require("../utils/keywords");
-const {fetchPageMeta} = require("../utils/fetchPageMeta");
+const { generateKeywords } = require("../utils/keywords");
+const { fetchPageMeta } = require("../utils/fetchPageMeta");
 //models
 const Pin = require("../models/pin.model");
 const User = require("../models/users.model");
@@ -31,22 +31,17 @@ const { log } = require("console");
 const { console } = require("inspector");
 const { extractContentFromImage } = require("../utils/readImage");
 
-
 const norm = (s) => s.trim().toLowerCase();
 const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 
 const allowedImage = ["image/jpeg", "image/png"];
 const allowedVideo = ["video/mp4", "video/mpeg", "video/quicktime"];
 const isAllowed = (mt) =>
   allowedImage.includes(mt) || allowedVideo.includes(mt);
 
-
-
-
 // ---------- controller ----------
 const createPin = asyncErrorHandler(async (req, res, next) => {
-  const { title, description, link, keywords, privacy, boards} = req.body;
+  const { title, description, link, keywords, privacy, boards } = req.body;
   if (!title || !description) {
     return next(new ApiError("Title and description are required", 400));
   }
@@ -76,19 +71,28 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
     type,
     filename: safeFilename,
   });
-  const provided = Array.isArray(keywords) ? keywords : keywords ? [keywords] : [];
-  
+  const provided = Array.isArray(keywords)
+    ? keywords
+    : keywords
+    ? [keywords]
+    : [];
 
   let linkMeta = null;
   if (link) {
-    linkMeta = await fetchPageMeta(link); 
+    linkMeta = await fetchPageMeta(link);
   }
 
- 
-
-  const extractedImage = await extractContentFromImage(storedAbs);
-   finalKeywords = generateKeywords(title,description,provided,linkMeta,extractedImage);
-
+  let extractedImage = null;
+  if (req.file.mimetype && req.file.mimetype.startsWith("image/")) {
+    extractedImage = await extractContentFromImage(storedAbs);
+  }
+  finalKeywords = generateKeywords(
+    title,
+    description,
+    provided,
+    linkMeta,
+    extractedImage
+  );
 
   const pin = new Pin({
     publisher: userId,
@@ -109,199 +113,257 @@ const createPin = asyncErrorHandler(async (req, res, next) => {
   await pin.save();
 
   await User.findByIdAndUpdate(userId, { $push: { pins: pin._id } });
-  logger.info('Pin: pin Created Successfully', { pinId: pin._id, userId });
-  
+  logger.info("Pin: pin Created Successfully", { pinId: pin._id, userId });
+
   return sendResponse(res, 201, "success", "Pin created", { pin });
-  
 });
-  const getPins = asyncErrorHandler(async (req, res, next) => {
+const getPins = asyncErrorHandler(async (req, res, next) => {
   const userId = String(req.user.id);
 
-    const { filter, sort, skip = 0, limit = 20, projection } = aqp(req.query, {
-      sort: { whitelist: ["createdAt", "updatedAt", "downloadCount", "pinReportCount", "title"] }
-    });
-
-    const scope = String(req.query.scope || "mine").toLowerCase(); 
-    const mongoFilter = { ...filter };
-
-    if (scope === "mine") {
-      mongoFilter.publisher = userId;
-    } else if (scope === "public") {
-      mongoFilter.privacy = "public";
-      
-      if (req.query.excludeMe !== "0") mongoFilter.publisher = { $ne: userId };
-    }
-
-    if (mongoFilter["media.type"]) {
-      const t = String(mongoFilter["media.type"]).toLowerCase();
-      if (t === "im   ages") mongoFilter["media.type"] = "image";
-      if (t === "videos") mongoFilter["media.type"] = "video";
-    }
-
-    
-    const kwRaw = (req.query.kw || req.query.keywords || "").toString();
-    let kwTerms = [];
-    if (kwRaw) {
-      kwTerms = kwRaw.split(",").map(s => s.trim()).filter(Boolean);
-      if (kwTerms.length) {
-        const regexes = kwTerms.map(k => new RegExp(`^${escapeRegex(k)}$`, "iu"));
-        const mode = String(req.query.kwMode || "any").toLowerCase();
-        mongoFilter.keywords = mode === "all"
-          ? { $all: regexes }
-          : { $elemMatch: { $in: regexes } };
-      }
-    }
-
-   
-    const qRaw = (req.query.q || "").toString();
-    let qTokens = [];
-    if (qRaw) {
-      mongoFilter.$text = {
-        $search: qRaw,
-        $caseSensitive: false,
-        $diacriticSensitive: false,
-      };
-      qTokens = qRaw.replace(/["']/g, " ")
-        .split(/[,\s]+/).map(s => s.trim()).filter(Boolean);
-    }
-
-    let cursor = Pin.find(mongoFilter);
-    if (projection) cursor = cursor.select(projection);
-
-    if (mongoFilter.$text) {
-      cursor = cursor
-        .select({ score: { $meta: "textScore" }, ...(projection || {}) })
-        .sort({ score: { $meta: "textScore" } });
-    } else if (sort) {
-      cursor = cursor.sort(sort);
-    }
-
-    const hardLimit = Math.min(100, Math.max(1, +limit || 20));
-    cursor = cursor.skip(+skip || 0).limit(hardLimit);
-
-    const [pins, total] = await Promise.all([
-      cursor.lean(),
-      Pin.countDocuments(mongoFilter),
-    ]);
-
-    const normalized = pins.map(p => ({
-      ...p,
-      media: { ...p.media, URL: p.media?.URL || `/api/v1/pins/get-pin/${p._id}/media` }
-    }));
-
-    
-    const allTerms = Array.from(new Set([...kwTerms, ...qTokens]));
-    if (userId && allTerms.length) {
-      Interaction.create({ user: userId, action: "SEARCH", keywords: allTerms }).catch(() => {});
-      updateInterestsFromAction(userId, { keywords: allTerms }, "SEARCH").catch(() => {});
-      
-      User.findByIdAndUpdate(userId, { $addToSet: { savedSearches: { $each: allTerms } } }).catch(() => {});
-    }
-    
-    return sendResponse(res, 200, "success", "Pins fetched", {
-      pins: normalized, total, limit: hardLimit, skip: +skip || 0,
-      query: { scope, kw: kwRaw || undefined, q: qRaw || undefined, terms: allTerms }
-    });
+  const {
+    filter,
+    sort,
+    skip = 0,
+    limit = 20,
+    projection,
+  } = aqp(req.query, {
+    sort: {
+      whitelist: [
+        "createdAt",
+        "updatedAt",
+        "downloadCount",
+        "pinReportCount",
+        "title",
+      ],
+    },
   });
-const updatePin = asyncErrorHandler(async (req, res, next) => {
-  const userId = req.user.id;
-    const { title, description, link, keywords, privacy, boards } = req.body;
 
-    const pin = await Pin.findById(req.params.id);
-    if (!pin) return next(new ApiError("Pin not found", 404));
+  const scope = String(req.query.scope || "public").toLowerCase();
+  const mongoFilter = { ...filter };
 
-    if (String(pin.publisher) !== String(userId)) {
-      return next(new ApiError("Forbidden", 403));
+  
+  if (scope === "mine") {
+    mongoFilter.publisher = userId;
+  } else if (scope === "public") {
+    mongoFilter.privacy = "public";
+    if (req.query.excludeMe !== "0") mongoFilter.publisher = { $ne: userId };
+  }
+
+  
+  if (mongoFilter["media.type"]) {
+    const t = String(mongoFilter["media.type"]).toLowerCase();
+    if (t === "images") mongoFilter["media.type"] = "image";
+    if (t === "videos") mongoFilter["media.type"] = "video";
+  }
+
+  
+  const kwRaw = (req.query.kw || req.query.keywords || "").toString();
+  let kwTerms = [];
+  if (kwRaw) {
+    kwTerms = kwRaw
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (kwTerms.length) {
+      const regexes = kwTerms.map(
+        (k) => new RegExp(`^${escapeRegex(k)}$`, "iu")
+      );
+      const mode = String(req.query.kwMode || "any").toLowerCase();
+      mongoFilter.keywords =
+        mode === "all" ? { $all: regexes } : { $elemMatch: { $in: regexes } };
     }
+  }
 
-    const updates = {};
-    if (typeof title === "string") updates.title = title;
-    if (typeof description === "string") updates.description = description;
-    if (typeof link === "string") updates.link = link;
+  
+  const qRaw = (req.query.q || "").toString();
+  let qTokens = [];
+  if (qRaw) {
+    mongoFilter.$text = {
+      $search: qRaw,
+      $caseSensitive: false,
+      $diacriticSensitive: false,
+    };
+    qTokens = qRaw
+      .replace(/["']/g, " ")
+      .split(/[,\s]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
 
-    const newTitle = (typeof title === "string" ? title : pin.title) ?? "";
-    const newDesc  = (typeof description === "string" ? description : pin.description) ?? "";
-    const newLink  = (typeof link === "string" ? link : pin.link) || null;
+  
+  let cursor = Pin.find(mongoFilter);
+  if (projection) cursor = cursor.select(projection);
 
+  if (mongoFilter.$text) {
+    cursor = cursor
+      .select({ score: { $meta: "textScore" }, ...(projection || {}) })
+      .sort({ score: { $meta: "textScore" } });
+  } else if (sort) {
+    cursor = cursor.sort(sort);
+  }
 
-    
-   
-
-    const providedKeywords = Array.isArray(keywords)
-      ? keywords
-      : (typeof keywords === "string" && keywords.trim() ? [keywords] : []);
-
-    let linkMeta = null;
-    if (typeof newLink === "string" && newLink.trim()) {
-      try {
-        new URL(newLink);
-        linkMeta = await fetchPageMeta(newLink);
-      } catch {
-        linkMeta = null;
-      }
-    }
-
-    const type = pin.media?.type === "image" ? "images" : "videos";
-    const filename =
-      pin.media?.filename ||
-      (pin.media?.path ? path.basename(pin.media.path) : null) ||
-      (pin.media?.uri ? path.basename(pin.media.uri) : null);
-
-    let currentAbs = null;
-    if (filename) {
-      const currentDir = pin.media?.path
-        ? path.dirname(path.resolve(pin.media.path))
-        : path.resolve(userBucketDir(userId, pin.privacy || "public", type));
-      currentAbs = path.resolve(currentDir, filename);
-    }
-
-    let extractedImage = null;
-    if (pin.media?.type === "image" && currentAbs) {
-      try {
-        extractedImage = await extractContentFromImage(currentAbs);
-      } catch {
-        extractedImage = null;
-      }
-    }
-
-    const finalKeywords = generateKeywords(
-      newTitle,
-      newDesc,
-      [...providedKeywords],
-      linkMeta,
-      extractedImage
-    );
-
-    updates.keywords = finalKeywords;
+  const hardLimit = Math.min(100, Math.max(1, +limit || 20));
+  cursor = cursor.skip(+skip || 0).limit(hardLimit);
 
  
-    if (typeof privacy !== "undefined" && privacy !== null) {
-      const newVisRaw = String(privacy).toLowerCase() === "private" ? "private" : "public";
-      const newVis = newVisRaw === "private" ? "private" : "public";
+  const [pins, total] = await Promise.all([
+    cursor.lean(),
+    Pin.countDocuments(mongoFilter),
+  ]);
 
-      if (newVis !== pin.privacy) {
-        if (!filename) {
-          return next(new ApiError("Existing media filename is missing", 500));
-        }
+  
+  const normalized = pins.map((p) => {
+    const { keywords, ...rest } = p; 
+    return {
+      ...rest,
+      media: {
+        ...(rest.media || {}),
+        URL:
+          (rest.media && rest.media.URL) ||
+          `/api/v1/pins/get-pin/${rest._id}/media`,
+      },
+    };
+  });
 
-        const newDir = userBucketDir(userId, newVis, type);
-        const fromAbs = pin.media?.path
-          ? path.resolve(pin.media.path)
-          : path.resolve(userBucketDir(userId, pin.privacy || "public", type), filename);
 
-        const newAbs = await moveIfNeeded(fromAbs, path.resolve(newDir), filename);
+  const allTerms = Array.from(new Set([...kwTerms, ...qTokens]));
+  if (userId && allTerms.length) {
+    Interaction.create({
+      user: userId,
+      action: "SEARCH",
+      keywords: allTerms,
+    }).catch(() => {});
+    updateInterestsFromAction(userId, { keywords: allTerms }, "SEARCH").catch(
+      () => {}
+    );
+    User.findByIdAndUpdate(userId, {
+      $addToSet: { savedSearches: { $each: allTerms } },
+    }).catch(() => {});
+  }
 
-        updates.privacy = newVis;
-        updates["media.path"] = toPosix(newAbs);
-        updates["media.uri"] = buildMediaUri({ userId, vis: newVis, type, filename });
-        updates["media.filename"] = filename;
-      }
+  return sendResponse(res, 200, "success", "Pins fetched", {
+    pins: normalized,
+    total,
+    limit: hardLimit,
+    skip: +skip || 0,
+    query: {
+      scope,
+      kw: kwRaw || undefined,
+      q: qRaw || undefined,
+      terms: allTerms,
+    },
+  });
+});
+const updatePin = asyncErrorHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  const { title, description, link, keywords, privacy, boards } = req.body;
+
+  const pin = await Pin.findById(req.params.id);
+  if (!pin) return next(new ApiError("Pin not found", 404));
+
+  if (String(pin.publisher) !== String(userId)) {
+    return next(new ApiError("Forbidden", 403));
+  }
+
+  const updates = {};
+  if (typeof title === "string") updates.title = title;
+  if (typeof description === "string") updates.description = description;
+  if (typeof link === "string") updates.link = link;
+
+  const newTitle = (typeof title === "string" ? title : pin.title) ?? "";
+  const newDesc =
+    (typeof description === "string" ? description : pin.description) ?? "";
+  const newLink = (typeof link === "string" ? link : pin.link) || null;
+
+  const providedKeywords = Array.isArray(keywords)
+    ? keywords
+    : typeof keywords === "string" && keywords.trim()
+    ? [keywords]
+    : [];
+
+  let linkMeta = null;
+  if (typeof newLink === "string" && newLink.trim()) {
+    try {
+      new URL(newLink);
+      linkMeta = await fetchPageMeta(newLink);
+    } catch {
+      linkMeta = null;
     }
+  }
 
-    Object.assign(pin, updates);
-    await pin.save();
+  const type = pin.media?.type === "image" ? "images" : "videos";
+  const filename =
+    pin.media?.filename ||
+    (pin.media?.path ? path.basename(pin.media.path) : null) ||
+    (pin.media?.uri ? path.basename(pin.media.uri) : null);
 
-    return sendResponse(res, 200, "success", "Pin updated", { pin });
+  let currentAbs = null;
+  if (filename) {
+    const currentDir = pin.media?.path
+      ? path.dirname(path.resolve(pin.media.path))
+      : path.resolve(userBucketDir(userId, pin.privacy || "public", type));
+    currentAbs = path.resolve(currentDir, filename);
+  }
+
+  let extractedImage = null;
+  if (pin.media?.type === "image" && currentAbs) {
+    try {
+      extractedImage = await extractContentFromImage(currentAbs);
+    } catch {
+      extractedImage = null;
+    }
+  }
+
+  const finalKeywords = generateKeywords(
+    newTitle,
+    newDesc,
+    [...providedKeywords],
+    linkMeta,
+    extractedImage
+  );
+
+  updates.keywords = finalKeywords;
+
+  if (typeof privacy !== "undefined" && privacy !== null) {
+    const newVisRaw =
+      String(privacy).toLowerCase() === "private" ? "private" : "public";
+    const newVis = newVisRaw === "private" ? "private" : "public";
+
+    if (newVis !== pin.privacy) {
+      if (!filename) {
+        return next(new ApiError("Existing media filename is missing", 500));
+      }
+
+      const newDir = userBucketDir(userId, newVis, type);
+      const fromAbs = pin.media?.path
+        ? path.resolve(pin.media.path)
+        : path.resolve(
+            userBucketDir(userId, pin.privacy || "public", type),
+            filename
+          );
+
+      const newAbs = await moveIfNeeded(
+        fromAbs,
+        path.resolve(newDir),
+        filename
+      );
+
+      updates.privacy = newVis;
+      updates["media.path"] = toPosix(newAbs);
+      updates["media.uri"] = buildMediaUri({
+        userId,
+        vis: newVis,
+        type,
+        filename,
+      });
+      updates["media.filename"] = filename;
+    }
+  }
+
+  Object.assign(pin, updates);
+  await pin.save();
+
+  return sendResponse(res, 200, "success", "Pin updated", { pin });
 });
 const deletePin = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
@@ -334,9 +396,9 @@ const deletePin = asyncErrorHandler(async (req, res, next) => {
 
   await Promise.all([
     Pin.deleteOne({ _id: pin._id }),
-    User.findByIdAndUpdate(pin.publisher, { $pull: { pins: pin._id } }),  
+    User.findByIdAndUpdate(pin.publisher, { $pull: { pins: pin._id } }),
   ]);
-  logger.info('Pin: Pin deleted successfully', { pinId, userId });
+  logger.info("Pin: Pin deleted successfully", { pinId, userId });
   return sendResponse(res, 200, "success", "Pin deleted", { id: pin._id });
 });
 
@@ -362,7 +424,7 @@ const likedPins = asyncErrorHandler(async (req, res, next) => {
     action: "LIKE",
     keywords: pin.keywords || [],
   });
-  logger.info('Pin: Pin liked successfully', { pinId: pin._id, userId });
+  logger.info("Pin: Pin liked successfully", { pinId: pin._id, userId });
   await updateInterestsFromAction(userId, pin, "LIKE");
   sendResponse(res, 200, "success", "Pin liked", { pin });
 });
@@ -384,8 +446,7 @@ const unlikePin = asyncErrorHandler(async (req, res, next) => {
 
   await User.findByIdAndUpdate(userId, { $pull: { likedPins: pin._id } });
 
- 
-  logger.info('Pin: Pin unliked successfully', { pinId: pin._id, userId });
+  logger.info("Pin: Pin unliked successfully", { pinId: pin._id, userId });
   sendResponse(res, 200, "success", "Pin unliked", { pin });
 });
 
@@ -393,7 +454,7 @@ const addComment = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   if (!userId) return next(new ApiError("Unauthorized", 401));
   const pinId = req.params.id;
-  const {text} = req.body;
+  const { text } = req.body;
   if (!text) return next(new ApiError("Comment text is required", 400));
 
   const pin = await Pin.findById(pinId);
@@ -415,14 +476,19 @@ const addComment = asyncErrorHandler(async (req, res, next) => {
     keywords: pin.keywords || [],
   });
   await updateInterestsFromAction(userId, pin, "COMMENT");
-  logger.info('Pin: Comment created successfully', { pinId, userId });
+  logger.info("Pin: Comment created successfully", { pinId, userId });
   sendResponse(res, 201, "success", "Comment created", { comment });
 });
 const getComments = asyncErrorHandler(async (req, res, next) => {
   const pinId = req.params.id;
-  const pin = await Pin.findById(pinId).populate({ path: "comments", populate: { path: "user", select: "username avatar" } });
+  const pin = await Pin.findById(pinId).populate({
+    path: "comments",
+    populate: { path: "user", select: "username avatar" },
+  });
   if (!pin) return next(new ApiError("Pin not found", 404));
-  sendResponse(res, 200, "success", "Comments fetched", { comments: pin.comments });
+  sendResponse(res, 200, "success", "Comments fetched", {
+    comments: pin.comments,
+  });
 });
 const addReplay = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
@@ -431,13 +497,13 @@ const addReplay = asyncErrorHandler(async (req, res, next) => {
   const { text } = req.body;
   if (!text) return next(new ApiError("Replay text is required", 400));
 
-const parentComment = await Comment.findById(commentId);
+  const parentComment = await Comment.findById(commentId);
   if (!parentComment) return next(new ApiError("Comment not found", 404));
   const reply = await Comment.create({
     user: userId,
     pin: parentComment.pin,
     text,
-    parent: commentId, 
+    parent: commentId,
   });
   parentComment.replies.push(reply._id);
 
@@ -450,14 +516,12 @@ const parentComment = await Comment.findById(commentId);
     keywords: [],
   });
   await updateInterestsFromAction(userId, parentComment.pin, "COMMENT");
-  logger.info('Pin: Replay created successfully', { commentId, userId });
-    sendResponse(res, 201, "success", "Reply created", { reply });
-
-})
-
+  logger.info("Pin: Replay created successfully", { commentId, userId });
+  sendResponse(res, 201, "success", "Reply created", { reply });
+});
 
 const deleteComment = asyncErrorHandler(async (req, res, next) => {
- const userId = req.user.id;
+  const userId = req.user.id;
   if (!userId) return next(new ApiError("Unauthorized", 401));
 
   const { commentId } = req.params;
@@ -475,7 +539,7 @@ const deleteComment = asyncErrorHandler(async (req, res, next) => {
     const id = queue.shift();
     toDelete.push(id);
     const c = await Comment.findById(id, "replies").lean();
-    if (c?.replies?.length) queue.push(...c.replies.map(r => String(r)));
+    if (c?.replies?.length) queue.push(...c.replies.map((r) => String(r)));
   }
 
   if (comment.parent) {
@@ -494,11 +558,18 @@ const deleteComment = asyncErrorHandler(async (req, res, next) => {
 
   await Comment.deleteMany({ _id: { $in: toDelete } });
 
-  await Interaction.deleteMany({ pin: comment.pin, comment: { $in: toDelete } });
+  await Interaction.deleteMany({
+    pin: comment.pin,
+    comment: { $in: toDelete },
+  });
 
   await updateInterestsFromAction(userId, comment.pin, "COMMENT");
 
-  logger.info("Pin: Comment deleted successfully", { commentId, userId, count: toDelete.length });
+  logger.info("Pin: Comment deleted successfully", {
+    commentId,
+    userId,
+    count: toDelete.length,
+  });
   sendResponse(res, 200, "success", "Comment deleted", { ids: toDelete });
 });
 
@@ -517,7 +588,6 @@ const getRecommendedPins = asyncErrorHandler(async (req, res, next) => {
     }); //get popular pins later
   }
 
- 
   pins = await Pin.populate(pins, [
     { path: "publisher", select: "username avatar" },
     { path: "board", select: "name" },
@@ -549,7 +619,7 @@ const reportPin = asyncErrorHandler(async (req, res, next) => {
   pin.pinReportCount = (pin.pinReportCount || 0) + 1;
   await pin.save();
 
-  logger.info('Pin: Pin reported successfully', { pinId, userId });
+  logger.info("Pin: Pin reported successfully", { pinId, userId });
   sendResponse(res, 200, "success", "Pin reported", { pin });
 });
 
@@ -565,5 +635,5 @@ module.exports = {
   addReplay,
   deleteComment,
   getRecommendedPins,
-  reportPin
+  reportPin,
 };

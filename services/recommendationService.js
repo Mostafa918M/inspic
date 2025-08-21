@@ -25,6 +25,7 @@ async function recommendPinsForUser(userId, { limit = 30 } = {}) {
     return Pin.find({ privacy: "public", publisher: { $ne: userId } })
       .sort({ createdAt: -1 })
       .limit(limit)
+      .select("-keywords")   
       .lean();
   }
 
@@ -35,6 +36,7 @@ async function recommendPinsForUser(userId, { limit = 30 } = {}) {
     })
     .sort({ createdAt: -1 })
     .limit(limit)
+    .select("-keywords")   
     .lean();
 }
 
