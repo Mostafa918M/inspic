@@ -12,6 +12,7 @@ async function recommendPinsForUser(userId, { limit = 30 } = {}) {
     .select("keyword")
     .lean();
 
+    console.log("Top interests:", top);
   const interestKeys = top.map(t => t.keyword);
 
 

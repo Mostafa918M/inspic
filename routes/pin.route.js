@@ -4,6 +4,7 @@ const { upload } = require("../config/multer");
 const {
   createPin,
   getPins,
+  getPinById,
   updatePin,
   deletePin,
   likedPins,
@@ -28,6 +29,7 @@ const router = express.Router();
 router.post("/create-pin", auth(), upload.single("media"), createPin);
 router.get("/get-pins", auth(), getPins);
 router.get("/recommendations", auth(), getRecommendedPins);
+router.get("/:id", auth(), getPinById);
 
 router.post('/liked-pins/:id', auth(), likedPins);
 router.post('/unlike-pin/:id', auth(), unlikePin);

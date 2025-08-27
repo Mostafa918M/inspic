@@ -16,7 +16,6 @@ const parsePagination = (req) => {
   const page = Math.max(parseInt(req.query.page || '1', 10), 1);
   const skip = (page - 1) * limit;
 
-  // sort=createdAt:desc,name:asc
   const sort = (req.query.sort || 'createdAt:desc')
     .split(',')
     .reduce((acc, part) => {

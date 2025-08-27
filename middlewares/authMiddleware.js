@@ -3,6 +3,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/users.model");
 const JWT_SECRET_ACCESS = process.env.JWT_SECRET_ACCESS;
 const ApiError = require("../utils/ApiError");
+const sendResponse = require("../utils/sendResponse");
 
 function authMiddleware(allowedUsers = ["user"]) {
   return async function (req, res, next) {
@@ -13,7 +14,7 @@ function authMiddleware(allowedUsers = ["user"]) {
 
     const [scheme, token] = authHeader.split(" ");
     if (scheme !== "Bearer" || !token || token === "null" || token === "undefined") {
-      return res.status(401).json({ message: "Invalid Authorization format" });
+      return sendResponse(res, 401, "fail", "Invalid Authorization format");
     }
 
     try {
@@ -35,7 +36,7 @@ function authMiddleware(allowedUsers = ["user"]) {
 
       req.user = { ...decoded, role: user.role };
       if (allowedUsers && !allowedUsers.includes(user.role)) {
-        return res.status(403).json({ message: "Access denied: You do not have permission" });
+        return sendResponse(res, 403, "fail", "Access denied: You do not have permission");
       }
 
       next();

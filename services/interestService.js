@@ -25,11 +25,9 @@ async function updateInterestsFromAction(userId, pinDoc, action) {
     const weight = INTERACTION_WEIGHTS[action] || 0;
   if (!weight) return;
 
-  // Accept either a real pinDoc with keywords, or a plain object { keywords: [...] } for SEARCH
   const extractedKeywords =
     (Array.isArray(pinDoc?.keywords) ? pinDoc.keywords : []);
 
-  // For pin actions without keywords, bail early
   if (!extractedKeywords.length) return;
 
   const now = new Date();
@@ -65,7 +63,6 @@ async function updateInterestsFromAction(userId, pinDoc, action) {
       });
     }
 
-    // Decay, then add weight
     const decayed = applyDecay(doc.score, doc.lastInteractionAt, now);
     doc.score = decayed + weight;
 
@@ -82,7 +79,6 @@ async function updateInterestsFromAction(userId, pinDoc, action) {
     const field = fieldMap[action];
     doc.counts[field] = (doc.counts[field] || 0) + 1;
 
-    // Keep pin reference for non-search actions; omit for SEARCH
     doc.topSources.unshift({
       pin: (action !== "SEARCH" ? pinDoc?._id : undefined),
       action, weight, at: now

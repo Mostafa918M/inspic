@@ -12,6 +12,7 @@ const Interaction = require("../models/interaction.model");
 const { updateInterestsFromAction } = require("../services/interestService");
 
 const getMedia = asyncErrorHandler(async (req, res, next) => {
+  
   const pin = await Pin.findById(req.params.id);
   if (!pin) return next(new ApiError("Pin not found", 404));
 
@@ -42,6 +43,16 @@ const getMedia = asyncErrorHandler(async (req, res, next) => {
   if (!req.user) return next(new ApiError("Unauthorized", 401));
   if (String(req.user.id) !== ownerId && !req.user.isAdmin)
     return next(new ApiError("Forbidden", 403));
+
+
+
+   await Interaction.create({
+          user: userId,
+          pin: pin._id,
+          action: "VIEW",
+          keywords: pin.keywords || [],
+        });
+        await updateInterestsFromAction(userId, pin, "VIEW");
 
   await fsp.access(abs, fs.constants.R_OK);
   if (pin.media?.mimetype) res.type(pin.media.mimetype);

@@ -26,8 +26,8 @@ async function moveIfNeeded(fromAbsPath, toDirAbs, filename) {
 function toPosix(p) { return p.split(path.sep).join("/"); }
 
 function buildMediaUri({ userId, vis, type, filename }) {    
-  
-  return toPosix(`/api/v1/users/${userId}/pins/${vis}/${type}/${filename}`);
+
+  return toPosix(`/media/users/${userId}/pins/${vis}/${type}/${filename}`);
 }   
 
 module.exports = {

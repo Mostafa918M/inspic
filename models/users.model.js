@@ -27,7 +27,7 @@ const userSchema = new mongoose.Schema(
     bookmarkedPins: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
     likedPins: [{ type: mongoose.Schema.Types.ObjectId, ref: "Pin" }],
     notifications: [{ type: mongoose.Schema.Types.ObjectId, ref: "Notification" }],
-    savedSearches: [{ type: [String], default: [] }],
+    savedSearches: [{ type: String, default: [] }],
 
      role: { type: String, enum: ["user", "admin"], default: "user" },
     googleId: { type: String, index: true },

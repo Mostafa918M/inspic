@@ -13,7 +13,7 @@ const getProfile = asyncErrorHandler(async (req, res, next) => {
     return next(new ApiError("User not found", 404));
   }
 
-  sendResponse(res, 200, "success", "User profile retrieved successfully", {
+  return sendResponse(res, 200, "success", "User profile retrieved successfully", {
     user: { 
       id: user._id,
       username: user.username,
@@ -23,13 +23,13 @@ const getProfile = asyncErrorHandler(async (req, res, next) => {
       lastName: user.lastName,
       bio: user.bio,
       birthdate: user.birthdate,
-      followers: user.followers.length,
-      following: user.following.length,
-      boards: user.boards.length,
-      pins: user.pins.length,
-      bookmarks: user.bookmarks.length,
-      likedPins: user.likedPins.length,
-
+      followers: user.followers,
+      following: user.following,
+      boards: user.boards,
+      pins: user.pins,
+      bookmarks: user.bookmarks,
+      likedPins: user.likedPins,
+      savedSearches: user.savedSearches,
       role: user.role.name, 
     },
   });
