@@ -1,6 +1,6 @@
 const asyncErrorHandler = require("../utils/asyncErrorHandler");
-const ApiError = require("../utils/apiError");
-const User = require("../models/users.models");
+const ApiError = require("../utils/ApiError");
+const User = require("../models/users.model");
 const bcrypt = require("bcrypt");
 const passwordValidator = require('../utils/passwordValidator');
 const { generateRefreshToken, generateAccessToken } = require("../utils/jwt");
@@ -37,14 +37,14 @@ async function createAndSendEmailCode(user, logger) {
   logger.info("Auth: verification code sent", { userId: user._id.toString(), email: user.email });
 }
 
-const signup = asyncErrorHandler(async (req, res, next) => {  
-  const { username, email, password } = req.body;
-   logger.info("Auth: signup attempt", {
+const signup = asyncErrorHandler(async (req, res, next) => {
+  const { username, firstName, lastName, email, password } = req.body;
+  logger.info("Auth: signup attempt", {
     email,
     ip: req.ip,
     ua: req.headers["user-agent"],
   });
-  if (!username || !email || !password) {
+  if (!username || !email || !password || !firstName || !lastName) {
     logger.warn("Auth: signup missing fields");
     return next(new ApiError("Please provide all required fields"));
   }
@@ -56,11 +56,13 @@ const signup = asyncErrorHandler(async (req, res, next) => {
   const existingEmail = await User.findOne({ email });
   if (existingEmail) {
     logger.warn("Auth: signup email already in use", { email });
-    return next(new ApiError("Unable to create account"));
+    return next(new ApiError("email already in use"));
   }
   const hashPassword = await bcrypt.hash(password, 10);
   const user = new User({
     username: username,
+    firstName: firstName,
+    lastName: lastName,
     email: email,
     password: hashPassword,
     provider: "local",
@@ -79,6 +81,8 @@ const signup = asyncErrorHandler(async (req, res, next) => {
     user: {
       id: user._id,
       username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified
@@ -151,7 +155,7 @@ const signin = asyncErrorHandler(async (req, res, next) => {
     email,
     ip: req.ip,
   });
-  sendResponse(res,200,"success", "Signin successful",{
+   return sendResponse(res,200,"success", "Signin successful",{
     user: {
       id: user._id,
       username: user.username,
@@ -188,6 +192,8 @@ const callback = asyncErrorHandler(async (req, res, next) => {
   if (!user) {
     user = await User.create({
       username: name || email.split("@")[0],
+      firstName: name ? name.split(" ")[0] : "",
+      lastName: name ? name.split(" ").slice(1).join(" ") : "",
       email,
       googleId,
       provider: "google",
@@ -315,7 +321,26 @@ const resendVerification = asyncErrorHandler(async (req, res, next) => {
   return sendResponse(res, 200, "success", "Verification code sent.");
 });
 
+const newAccessToken = asyncErrorHandler(async (req, res, next) => {
+  const token = req.cookies.refreshToken
+  if(!token) {
+    return next(new ApiError("Missing refresh token", 401));
+  }
+  const decoded = jwt.verify(token, process.env.JWT_SECRET_REFRESH);
+  if (!decoded) {
+    return next(new ApiError("Invalid refresh token", 401));
+  }
 
+  const user = await User.findById(decoded.id);
+  if (!user) {
+    return next(new ApiError("User not found", 404));
+  }
+
+  const newAccessToken = generateAccessToken(user);
+  logger.info("Auth: new access token generated", {userId: user._id.toString(),});
+  return sendResponse(res, 200, "success", "New access token generated", {accessToken: newAccessToken,
+  });
+});
 
 const signout = asyncErrorHandler(async (req, res, next) => {
   logger.info("Auth: signout attempt", {
@@ -449,5 +474,6 @@ module.exports = {
   callback,
   signout,
   forgetPassword,
-  resetPassword
+  resetPassword,
+  newAccessToken
 };

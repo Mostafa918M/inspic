@@ -10,6 +10,7 @@ const {
   forgetPassword,
   resetPassword,
   resendVerification,
+  newAccessToken
 } = require("../controllers/auth.controller");
 const { emailValidator } = require("../middlewares/validators");
 
@@ -26,5 +27,6 @@ router.post("/signout",signout)
 
 router.post("/forget-password", emailValidator, forgetPassword);
 router.post("/reset-password", resetPassword);
+router.post("/refresh-token", newAccessToken);
 
 module.exports = router;
