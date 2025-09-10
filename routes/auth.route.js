@@ -10,12 +10,15 @@ const {
   forgetPassword,
   resetPassword,
   resendVerification,
-  newAccessToken
+  newAccessToken,
+  getUserInfo
 } = require("../controllers/auth.controller");
 const { emailValidator } = require("../middlewares/validators");
+const  auth  = require("../middlewares/authMiddleware");
 
 const router = express.Router();
 
+router.get("/me",auth(), getUserInfo);
 router.post(
   "/signup", emailValidator,signup
 );

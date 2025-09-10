@@ -34,6 +34,8 @@ app.use(cors({
 const UPLOADS_ROOT = path.resolve("uploads");
 app.use(express.json());
 app.use(cookieParser());
+app.get("/", (req, res) => res.send("Hello from Vercel + Express!"));
+
 app.use('/media',  express.static(UPLOADS_ROOT, {
     setHeaders: (res, filePath) => {
       if (!filePath.includes(path.sep + "public" + path.sep)) {

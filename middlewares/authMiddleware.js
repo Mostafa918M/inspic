@@ -7,20 +7,16 @@ const sendResponse = require("../utils/sendResponse");
 
 function authMiddleware(allowedUsers = ["user"]) {
   return async function (req, res, next) {
-    const authHeader = req.headers["authorization"];
-    if (!authHeader) {
-      return res.status(401).json({ message: "Missing Authorization header" });
+    const token = req.cookies.accessToken;
+    if (!token) {
+      return next(new ApiError("No token provided, please login", 401));
     }
-
-    const [scheme, token] = authHeader.split(" ");
-    if (scheme !== "Bearer" || !token || token === "null" || token === "undefined") {
-      return sendResponse(res, 401, "fail", "Invalid Authorization format");
-    }
+    
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET_ACCESS);
     
-      const user = await User.findById(decoded.id).select("role tokenVersion");
+      const user = await User.findById(decoded.id).select("role tokenVersion isEmailVerified");
       if (!user) {
         return next(new ApiError("Invalid or expired token, please login again", 401));
       }
@@ -34,7 +30,7 @@ function authMiddleware(allowedUsers = ["user"]) {
         return next(new ApiError("Token revoked. Please login again.", 401));
       }
 
-      req.user = { ...decoded, role: user.role };
+      req.user = { ...decoded, role: user.role, isEmailVerified: user.isEmailVerified };
       if (allowedUsers && !allowedUsers.includes(user.role)) {
         return sendResponse(res, 403, "fail", "Access denied: You do not have permission");
       }

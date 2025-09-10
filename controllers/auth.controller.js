@@ -18,6 +18,7 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 
 const APP_URL = process.env.APP_URL || "http://localhost:3000";
+const FRONTEND_URL = process.env.FRONTEND_URL
 const VERIFICATION_CODE_TTL_MIN = 15
 const MAX_VERIFICATION_ATTEMPTS = 5
 const RESEND_COOLDOWN_SECONDS = 60
@@ -146,9 +147,13 @@ const signin = asyncErrorHandler(async (req, res, next) => {
   const accessToken = generateAccessToken(user);
   res.cookie("refreshToken", RefreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",
     maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+    res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "Strict",
+    maxAge: 15 * 60 * 1000,
   });
     logger.info("Auth: signin success", {
     userId: user._id.toString(),
@@ -162,8 +167,7 @@ const signin = asyncErrorHandler(async (req, res, next) => {
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
-    },
-    accessToken: accessToken
+    }
   })
   
 });
@@ -203,7 +207,7 @@ const callback = asyncErrorHandler(async (req, res, next) => {
   } else {
     const updates = {};
     if (!user.googleId) updates.googleId = googleId;
-    if (user.provider !== "google") updates.provider = "google"; // you can keep 'local' if you prefer dual-mode
+    if (user.provider !== "google") updates.provider = "google"; 
     if (!user.isEmailVerified && email_verified) updates.isEmailVerified = true;
     if (!user.avatar && picture) updates.avatar = picture;
     if (Object.keys(updates).length) await User.updateOne({ _id: user._id }, { $set: updates });
@@ -213,17 +217,20 @@ const callback = asyncErrorHandler(async (req, res, next) => {
   const accessToken  = generateAccessToken(user);
   res.cookie("refreshToken", RefreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "Strict", // if frontend is on another domain, switch to: sameSite: "None", secure: true
+    sameSite: "Strict",
     maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "Strict",
+    maxAge: 15 * 60 * 1000,
   });
 
   sendResponse(res, 200, "success", "Signin successful", {
     user: {
       id: user._id, username: user.username, email: user.email, role: user.role,
       avatar: user.avatar, provider: user.provider,
-    },
-    accessToken,
+    }
   });
 });
 const verifyEmail = asyncErrorHandler(async (req, res, next) => {
@@ -274,9 +281,14 @@ const verifyEmail = asyncErrorHandler(async (req, res, next) => {
 
   res.cookie("refreshToken", RefreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",
     maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+
+  res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "Strict",
+    maxAge: 15 * 60 * 1000,
   });
 
   logger.info("Auth: email verified", { userId: user._id, email });
@@ -288,15 +300,14 @@ const verifyEmail = asyncErrorHandler(async (req, res, next) => {
       email: user.email,
       role: user.role,
       isEmailVerified: user.isEmailVerified,
-    },
-    accessToken,
+    }
   });
 });
 
 const resendVerification = asyncErrorHandler(async (req, res, next) => {
   const { email } = req.body;
 
-  logger.info("Auth: resend verification attempt", { email, ip: req.ip });
+  logger.info("Auth: resend verification attempt");
 
   if (!email) return next(new ApiError("Email is required"));
 
@@ -337,21 +348,27 @@ const newAccessToken = asyncErrorHandler(async (req, res, next) => {
   }
 
   const newAccessToken = generateAccessToken(user);
-  logger.info("Auth: new access token generated", {userId: user._id.toString(),});
-  return sendResponse(res, 200, "success", "New access token generated", {accessToken: newAccessToken,
+
+  res.cookie("accessToken", newAccessToken, {
+    httpOnly: true,
+    sameSite: "Strict",
+    maxAge: 15 * 60 * 1000,
   });
+  
+  logger.info("Auth: new access token generated", {userId: user._id.toString(),});
+  return sendResponse(res, 200, "success", "New access token generated");
 });
 
 const signout = asyncErrorHandler(async (req, res, next) => {
-  logger.info("Auth: signout attempt", {
-    ip: req.ip,
-    ua: req.headers["user-agent"],
-  });
+  logger.info("Auth: signout attempt");
 
  try {
-    const authHeader = req.headers["authorization"];
-    if (authHeader) {
-      const [, token] = authHeader.split(" ");
+    const token = req.cookies.accessToken;
+    if (!token) {
+      return next(new ApiError("No token provided, please login", 401));
+    }
+
+    if (token) {
       try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET_ACCESS);
         await User.updateOne({ _id: decoded.id }, { $inc: { tokenVersion: 1 } });
@@ -364,11 +381,14 @@ const signout = asyncErrorHandler(async (req, res, next) => {
 
     res.clearCookie("refreshToken", {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      sameSite: "Strict",
+    });
+    res.clearCookie("accessToken", {
+      httpOnly: true,
       sameSite: "Strict",
     });
 
-    logger.info("Auth: signout success", { ip: req.ip });
+    logger.info("Auth: signout success");
     return sendResponse(res, 200, "success", "Signout successful");
   } catch (e) {
     return next(new ApiError("Failed to sign out", 500));
@@ -402,7 +422,7 @@ const forgetPassword = asyncErrorHandler(async (req, res, next) => {
   user.passwordResetLastSentAt = now;
   await user.save();
 
-  const resetUrl = `${APP_URL}/reset-password?token=${token}`;
+  const resetUrl = `${FRONTEND_URL}/auth/reset-password?token=${token}`;
   await sendPasswordResetEmail(user.email, resetUrl);
   logger.info("Auth: password reset email sent", { userId: user._id.toString(), email: user.email });
 
@@ -447,9 +467,13 @@ const {valid, errors} = passwordValidator.validatePasswordUsingLib(newPassword);
 
   res.cookie("refreshToken", RefreshToken, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "Strict", 
     maxAge: 7 * 24 * 60 * 60 * 1000,
+  });
+    res.cookie("accessToken", accessToken, {
+    httpOnly: true,
+    sameSite: "Strict",
+    maxAge: 15 * 60 * 1000,
   });
 
   return sendResponse(res, 200, "success", "Password has been reset successfully.", {
@@ -460,11 +484,24 @@ const {valid, errors} = passwordValidator.validatePasswordUsingLib(newPassword);
       role: user.role,
       isEmailVerified: user.isEmailVerified,
       provider: user.provider,
-    },
-    accessToken,
+    }
   });
 });
 
+const getUserInfo = asyncErrorHandler(async(req,res,next) => {
+    const {id,role,isEmailVerified} = req.user;
+    if(!req.user || !id) {
+        return next (new ApiError("User not authenticated",401));
+    }
+    logger.info("Auth: get user info");
+    return sendResponse(res,200,"success","User info retrieved",{
+        user: {
+            id,
+            role,
+            isEmailVerified
+        }
+    })
+});
 
 module.exports = {
   signup,
@@ -475,5 +512,6 @@ module.exports = {
   signout,
   forgetPassword,
   resetPassword,
-  newAccessToken
+  newAccessToken,
+  getUserInfo
 };
