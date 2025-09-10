@@ -23,5 +23,8 @@ pinSchema = new mongoose.Schema({
     
     
 },{timestamps:true});
+pinSchema.virtual('likeCount').get(function () {
+  return Array.isArray(this.likers) ? this.likers.length : 0;
+});
 
 module.exports = mongoose.model("Pin", pinSchema);

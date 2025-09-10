@@ -180,7 +180,6 @@ const globalError = (err, req, res, next) => {
   }
 };
 
-// Handle 404 errors for undefined routes
 const handleNotFound = (req, res, next) => {
   const error = new ApiError(`Route ${req.originalUrl} not found`, 404);
   next(error);

@@ -17,7 +17,8 @@ const {
   reportPin,
   addBookmark,
   removeBookmark,
-  getBookmarkedPins
+  getBookmarkedPins,
+  getPopularPins
   
 } = require("../controllers/pin.controller");
 
@@ -29,6 +30,7 @@ const router = express.Router();
 router.post("/create-pin", auth(), upload.single("media"), createPin);
 router.get("/get-pins", auth(), getPins);
 router.get("/recommendations", auth(), getRecommendedPins);
+router.get("/popular", auth(), getPopularPins);
 router.get("/:id", auth(), getPinById);
 
 router.post('/liked-pins/:id', auth(), likedPins);

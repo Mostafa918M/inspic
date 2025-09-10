@@ -151,24 +151,43 @@ const getPins = asyncErrorHandler(async (req, res, next) => {
   }
 
   if (mongoFilter["media.type"]) {
-    const t = String(mongoFilter["media.type"]).toLowerCase();
-    if (t === "im   ages") mongoFilter["media.type"] = "image";
-    if (t === "videos") mongoFilter["media.type"] = "video";
+    const t = String(mongoFilter["media.type"]).toLowerCase().trim();
+    if (["image", "images", "img", "photo", "photos"].includes(t)) {
+      mongoFilter["media.type"] = "image";
+    }
+    if (["video", "videos"].includes(t)) {
+      mongoFilter["media.type"] = "video";
+    }
+  }
+
+  function parseKwTokens(input) {
+    if (!input) return [];
+    const raw = input.match(/"[^"]+"|'[^']+'|[^,\s]+/g) || [];
+
+    const tokens = [];
+    for (const piece of raw) {
+      const isQuoted = /^".*"$|^'.*'$/.test(piece);
+      const unq = piece.replace(/^['"]|['"]$/g, "").trim();
+      if (!unq) continue;
+
+      if (isQuoted) {
+        tokens.push(unq);
+      } else if (/\s/.test(unq)) {
+        tokens.push(...unq.split(/\s+/).filter(Boolean));
+      } else {
+        tokens.push(unq);
+      }
+    }
+    return Array.from(new Set(tokens));
   }
 
   const kwRaw = (req.query.kw || req.query.keywords || "").toString();
-  let kwTerms = [];
-  if (kwRaw) {
-    kwTerms = kwRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (kwTerms.length) {
-      const regexes = kwTerms.map((k) => new RegExp(escapeRegex(k), "i"));
-      const mode = String(req.query.kwMode || "any").toLowerCase();
-      mongoFilter.keywords =
-        mode === "all" ? { $all: regexes } : { $elemMatch: { $in: regexes } };
-    }
+  let kwTerms = parseKwTokens(kwRaw);
+
+  if (kwTerms.length) {
+    const regexes = kwTerms.map((k) => new RegExp(`\\b${escapeRegex(k)}\\b`, "i"));
+    const mode = String(req.query.kwMode || "any").toLowerCase();
+    mongoFilter.keywords = mode === "all" ? { $all: regexes } : { $in: regexes };
   }
 
   const qRaw = (req.query.q || "").toString();
@@ -246,19 +265,19 @@ const getPins = asyncErrorHandler(async (req, res, next) => {
   });
 });
 
+
 const getPinById = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   if (!userId) return next(new ApiError("Unauthorized", 401));
   const pinId = req.params.id;
   if (!pinId) return next(new ApiError("Pin ID is required", 400));
-  const pin = await Pin.findById(pinId);
+  const pin = await Pin.findById(pinId).populate({ path: "publisher", select: "username avatar" })
+  .lean();
   if (!pin) return next(new ApiError("Pin not found", 404));
-  if (
-    pin.privacy === "private" &&
-    String(pin.publisher) !== String(req.user.id)
-  ) {
+  if ( pin.privacy === "private" &&String(pin.publisher) !== String(req.user.id) ) {
     return next(new ApiError("Forbidden", 403));
   }
+  pin.likeCount = Array.isArray(pin.likers)?pin.likers.length:0;
   await Interaction.create({
     user: userId,
     pin: pin._id,
@@ -417,7 +436,7 @@ const deletePin = asyncErrorHandler(async (req, res, next) => {
   return sendResponse(res, 200, "success", "Pin deleted", { id: pin._id });
 });
 
-const likedPins = asyncErrorHandler(async (req, res, next) => {
+const   likedPins = asyncErrorHandler(async (req, res, next) => {
   const userId = req.user.id;
   const pin = await Pin.findById(req.params.id);
 
@@ -428,6 +447,11 @@ const likedPins = asyncErrorHandler(async (req, res, next) => {
   if (pin.likers.includes(userId)) {
     return next(new ApiError("You have already liked this pin", 400));
   }
+
+  const already = (pin.likers || []).some(id => id.equals(uid));
+if (already) return next(new ApiError("You have already liked this pin", 400));
+
+
   pin.likers.push(userId);
   await pin.save();
 
@@ -441,7 +465,7 @@ const likedPins = asyncErrorHandler(async (req, res, next) => {
   });
   logger.info("Pin: Pin liked successfully", { pinId: pin._id, userId });
   await updateInterestsFromAction(userId, pin, "LIKE");
-  sendResponse(res, 200, "success", "Pin liked", { pin });
+  sendResponse(res, 200, "success", "Pin liked", { pinId: pin._id, liked:true,likeCount:(pin.likers||[]).length });
 });
 
 const unlikePin = asyncErrorHandler(async (req, res, next) => {
@@ -455,6 +479,9 @@ const unlikePin = asyncErrorHandler(async (req, res, next) => {
   if (!pin.likers.includes(userId)) {
     return next(new ApiError("You have not liked this pin", 400));
   }
+  const had = (pin.likers || []).some(id => id.equals(uid));
+if (!had) return next(new ApiError("You have not liked this pin", 400));
+
 
   pin.likers.pull(userId);
   await pin.save();
@@ -462,7 +489,7 @@ const unlikePin = asyncErrorHandler(async (req, res, next) => {
   await User.findByIdAndUpdate(userId, { $pull: { likedPins: pin._id } });
 
   logger.info("Pin: Pin unliked successfully", { pinId: pin._id, userId });
-  sendResponse(res, 200, "success", "Pin unliked", { pin });
+  sendResponse(res, 200, "success", "Pin unliked", { pinId: pin._id, liked: false, likeCount: (pin.likers || []).length });
 });
 
 const addComment = asyncErrorHandler(async (req, res, next) => {
@@ -588,17 +615,10 @@ const deleteComment = asyncErrorHandler(async (req, res, next) => {
 });
 
 const getRecommendedPins = asyncErrorHandler(async (req, res, next) => {
-  const userId = req.user.id;
-  const limit = Math.min(
-    Math.max(parseInt(req.query.limit || "30", 10), 1),
-    100
-  );
+ const userId = req.user.id;
+  const limit = Math.min(Math.max(parseInt(req.query.limit || "30", 10), 1), 100);
 
   let pins = await recommendPinsForUser(userId, { limit });
-  if (!pins.length) {
-    return getPopularPins(req, res, next);
-  }
-  
 
   pins = await Pin.populate(pins, [
     { path: "publisher", select: "username avatar" },
@@ -611,10 +631,7 @@ const getRecommendedPins = asyncErrorHandler(async (req, res, next) => {
     commentCount: Array.isArray(p.comments) ? p.comments.length : 0,
   }));
 
-  return sendResponse(res, 200, "success", "Recommended pins fetched", {
-    pins,
-  });
-  
+  return sendResponse(res, 200, "success", "Recommended pins fetched", { pins });
 });
 
 const reportPin = asyncErrorHandler(async (req, res, next) => {
@@ -719,7 +736,7 @@ const getPopularPins = asyncErrorHandler(async (req, res, next) => {
   const time = Date.now() - 30 * 24 * 60 * 60 * 1000;
   const pins = await Pin.find({ privacy: "public", createdAt: { $gte: time } })
     .select("title description media likeCount commentCount publisher")
-    .sort({ likeCount: -1, commentCount: -1 })
+    .sort({ likeCount: -1, commentCount: -1, createdAt: -1 })
     .limit(limit)
     .populate({ path: "publisher", select: "username avatar" });
 
@@ -749,4 +766,5 @@ module.exports = {
   addBookmark,
   removeBookmark,
   getBookmarkedPins,
+  getPopularPins
 };

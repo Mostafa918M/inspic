@@ -12,3 +12,5 @@ ${chalk.bgBlue.white.bold('   SERVER STARTED  ')}
 ${chalk.green('Listening on port:')} ${chalk.yellow.bold(PORT)}`);
 logger.info(`Server started on port ${PORT}`);
 });
+
+module.exports=app
